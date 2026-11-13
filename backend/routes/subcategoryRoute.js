@@ -5,7 +5,8 @@ const {
     createSubCategory,
     getAllSubCategories,
     updateSubCategory,
-    deleteSubCategory
+    deleteSubCategory,
+    updateSubCategoryStatus 
 } = require('../controllers/subcategorycontroller');
 
 const upload = require('../middleware/upload');
@@ -49,11 +50,12 @@ router.delete(
 );
 
 // UPDATE SUBCATEGORY STATUS
+
 router.put(
     '/status/:id',
     adminAuth,
     checkPermission('subcategories_edit'),
-    updateSubCategory
-);
+    updateSubCategoryStatus
+)
 
 module.exports = router;

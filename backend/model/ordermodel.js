@@ -86,6 +86,13 @@ const orderSchema = new mongoose.Schema(
             default: null
         },
 
+        // DELIVERY PARTNER EARNING
+deliveryEarning: {
+    type: Number,
+    default: 0,
+    min: 0
+},
+
         estimatedDeliveryTime: {
             type: Date,
             default: null

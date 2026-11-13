@@ -4,8 +4,10 @@ const router = express.Router()
 const {
     createInventory,
     getAllInventory,
+    getLowStockInventory ,
     updateInventory,
-    deleteInventory
+    deleteInventory,
+    updateInventoryStatus 
 } = require('../controllers/inventorycontroller')
 
 const adminAuth = require('../middleware/adminAuth')
@@ -27,6 +29,9 @@ router.get(
     getAllInventory
 )
 
+
+router.get('/low-stock', adminAuth, checkPermission('storeinventory_view'), getLowStockInventory)
+
 // UPDATE INVENTORY
 router.put(
     '/update/:id',
@@ -41,6 +46,13 @@ router.delete(
     adminAuth,
     checkPermission('storeinventory_delete'),
     deleteInventory
+)
+
+router.put(
+    '/update-status/:id',
+    adminAuth,
+    checkPermission('storeinventory_edit'),
+    updateInventoryStatus
 )
 
 module.exports = router

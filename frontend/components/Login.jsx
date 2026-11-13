@@ -6,7 +6,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-function Login({setCurrentForm,currentForm ,setShowModal,setUser}) {
+function Login({ setCurrentForm, currentForm, setShowModal, setUser }) {
   const router = useRouter()
 
   const [form, setForm] = useState({
@@ -16,7 +16,7 @@ function Login({setCurrentForm,currentForm ,setShowModal,setUser}) {
 
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (e) => { 
+  const handleChange = (e) => {
     setForm({
       ...form,
       [e.target.name]: e.target.value
@@ -65,19 +65,44 @@ function Login({setCurrentForm,currentForm ,setShowModal,setUser}) {
     }
   }
 
+  const inputClass = `
+    w-full min-w-0 rounded-xl border border-purple-200
+    bg-white px-4 py-3 text-sm text-gray-800
+    placeholder:text-gray-400 outline-none
+    transition duration-200
+    focus:border-purple-500 focus:ring-4 focus:ring-purple-100
+  `
+
+  const labelClass = `
+    mb-2 block text-sm font-semibold text-gray-700
+  `
+
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900">
-        Welcome Back
-      </h2>
+    <div className="mx-auto w-full min-w-0 max-w-md">
 
-      <p className="mb-6 mt-2 text-gray-500">
-        Login to your Sellora account
-      </p>
+      {/* Heading */}
+      <div className="mb-8 text-center sm:text-left">
 
-      <form className="space-y-4">
+        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl shadow-sm">
+          👋
+        </div>
+
+        <h2 className="text-2xl font-extrabold tracking-tight text-purple-950 sm:text-3xl">
+          Welcome Back
+        </h2>
+
+        <p className="mt-2 text-sm text-gray-500">
+          Login to your Sellora account and continue shopping
+        </p>
+
+      </div>
+
+      {/* Login Form */}
+      <form onSubmit={handleSubmit} className="space-y-5">
+
+        {/* Email */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className={labelClass}>
             Email Address
           </label>
 
@@ -88,12 +113,13 @@ function Login({setCurrentForm,currentForm ,setShowModal,setUser}) {
             value={form.email}
             onChange={handleChange}
             required
-            className="w-full rounded-lg border px-4 py-3"
+            className={inputClass}
           />
         </div>
 
+        {/* Password */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className={labelClass}>
             Password
           </label>
 
@@ -104,46 +130,63 @@ function Login({setCurrentForm,currentForm ,setShowModal,setUser}) {
             value={form.password}
             onChange={handleChange}
             required
-            className="w-full rounded-lg border px-4 py-3"
+            className={inputClass}
           />
         </div>
 
-        <div className="text-right">
+        {/* Forgot Password */}
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={()=>setCurrentForm("forget")}
-            className="text-sm text-purple-600 hover:underline"
+            onClick={() => setCurrentForm('forget')}
+            className="text-sm font-semibold text-purple-600 transition hover:text-purple-900 hover:underline"
           >
             Forgot Password?
           </button>
         </div>
 
+        {/* Login Button */}
         <button
-          type="button"
+          type="submit"
           disabled={loading}
-          onClick={handleSubmit}
-          className="w-full rounded-lg bg-purple-600 py-3 font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+          className="
+            w-full rounded-xl
+            bg-gradient-to-r from-purple-600 to-violet-600
+            py-3.5 text-sm font-bold text-white
+            shadow-lg shadow-purple-200
+            transition duration-200
+            hover:from-purple-700 hover:to-violet-700
+            active:scale-[0.99]
+            disabled:cursor-not-allowed disabled:opacity-50
+            disabled:shadow-none
+          "
         >
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Logging in...' : 'Login to Account'}
         </button>
+
       </form>
 
-             <p className="mt-5 text-center text-sm text-gray-600">
-                {currentForm === 'signup'
-                  ? 'Already have an account? '
-                  : "Don't have an account? "}
+      {/* Signup Link */}
+      <div className="mt-7 border-t border-purple-100 pt-5 text-center">
 
-                <button
-                  onClick={() =>
-                    setCurrentForm(
-                      currentForm === 'signup' ? 'login' : 'signup'
-                    )
-                  }
-                  className="font-semibold text-purple-600"
-                >
-                  {currentForm === 'signup' ? 'Login' : 'Sign Up'}
-                </button>
-              </p>
+        <p className="text-sm text-gray-600">
+          Don't have an account?{' '}
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentForm(
+                currentForm === 'signup' ? 'login' : 'signup'
+              )
+            }
+            className="font-bold text-purple-700 transition hover:text-purple-900 hover:underline"
+          >
+            Sign Up
+          </button>
+        </p>
+
+      </div>
+
     </div>
   )
 }

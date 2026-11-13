@@ -2,15 +2,20 @@ const DeliveryPartner = require('../model/deliverypartnermodel')
 const Delivery = require('../model/deliverymodel');
 
 // Get All Delivery Partners
+
 const getAllDeliveryPartners = async (req, res) => {
     try {
-        const deliveryPartners = await DeliveryPartner.find()
+        const deliveryPartners = await DeliveryPartner.find({
+            status: 'ACTIVE',
+            isOnline: true,
+            isAvailable: true
+        })
             .populate('user', 'firstName lastName email phone status')
             .sort({ createdAt: -1 })
 
         return res.status(200).json({
             success: true,
-            message: 'Delivery partners fetched successfully',
+            message: 'Available delivery partners fetched successfully',
             deliveryPartners
         })
 
@@ -26,50 +31,110 @@ const getAllDeliveryPartners = async (req, res) => {
 // Update Delivery Partner Status
 const updateDeliveryPartnerStatus = async (req, res) => {
 
-    try {
-        const { id } = req.params
-        const { status } = req.body
+    console.log('STATUS UPDATE API HIT');
 
-        const allowedStatus = ['ACTIVE', 'INACTIVE', 'BLOCKED']
+console.log('PARTNER ID:', id);
+console.log('NEW STATUS:', status);
+
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const allowedStatus = ['ACTIVE', 'INACTIVE', 'BLOCKED'];
 
         if (!allowedStatus.includes(status)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid status'
-            })
+            });
         }
 
-        const deliveryPartner = await DeliveryPartner.findById(id)
+        const deliveryPartner = await DeliveryPartner.findById(id);
 
         if (!deliveryPartner) {
             return res.status(404).json({
                 success: false,
                 message: 'Delivery partner not found'
-            })
+            });
         }
 
-        deliveryPartner.status = status
+        deliveryPartner.status = status;
 
         if (status !== 'ACTIVE') {
-            deliveryPartner.isOnline = false
-            deliveryPartner.isAvailable = false
+            deliveryPartner.isOnline = false;
+            deliveryPartner.isAvailable = false;
+
+            // Find partner's active deliveries
+
+            console.log('FINDING ACTIVE DELIVERIES FOR:', deliveryPartner._id);
+
+            const activeDeliveries = await Delivery.find({
+                deliveryPartner: deliveryPartner._id,
+                deliveryStatus: {
+                    $in: [
+                        'ASSIGNED',
+                        'ACCEPTED',
+                        'PICKED_UP',
+                        'OUT_FOR_DELIVERY'
+                    ]
+                }
+            });
+
+            // Cancel active deliveries
+            for (const delivery of activeDeliveries) {
+                delivery.deliveryStatus = 'CANCELLED';
+                delivery.deliveryOtp = null;
+                delivery.otpAttempts = 0;
+                delivery.otpBlockedUntil = null;
+                delivery.notes =
+                    'REASSIGNMENT_REQUIRED';
+
+                await delivery.save();
+            }
         }
 
-        await deliveryPartner.save()
+        await deliveryPartner.save();
 
         return res.status(200).json({
             success: true,
-            message: 'Delivery partner status updated successfully',
+            message: status === 'INACTIVE'
+                ? 'Partner deactivated and active deliveries cancelled. Reassignment required.'
+                : 'Delivery partner status updated successfully',
             deliveryPartner
-        })
+        });
 
     } catch (error) {
         return res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
+
+const getPendingReassignment = async (req, res) => {
+    try {
+        const deliveries = await Delivery.find({
+            deliveryStatus: 'CANCELLED',
+            notes: 'REASSIGNMENT_REQUIRED'
+        })
+            .populate('order')
+            .populate('deliveryPartner')
+            .populate('store')
+            .sort({ updatedAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            count: deliveries.length,
+            deliveries
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 
 // Delivery Partner Online / Offline
 const updateOnlineStatus = async (req, res) => {
@@ -255,6 +320,7 @@ const getMyAvailability = async (req, res) => {
 module.exports = {
     getAllDeliveryPartners,
     updateDeliveryPartnerStatus,
+    getPendingReassignment,
     updateOnlineStatus ,
     updateAvailability ,
     getMyAvailability 

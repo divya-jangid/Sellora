@@ -1,14 +1,11 @@
 
-import React, { useEffect, useState } from 'react'
 import {
   BrowserRouter,
   Route,
   Routes,
   Navigate,
-  Outlet,
-  useLocation
+  Outlet
 } from 'react-router-dom'
-import axios from 'axios'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -23,61 +20,46 @@ import Store from './pages/Store'
 import Template from './pages/Template'
 import Inventory from './pages/Inventory'
 import Orders from './pages/Orders'
+import MyProfile from './pages/MyProfile'
 
-import toast, { Toaster } from 'react-hot-toast';
+import AdminLayout from './layout/AdminLayout'
+import AccountLayout from './layout/AccountLayout'
+import ChangePassword from './pages/ChangePassword'
+import Banner from './pages/Banner'
+import MyEarnings from './pages/MyEarnings'
+
+import { Toaster } from 'react-hot-toast'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import PendingReassignment from './pages/PendingReassignment'
 
 
 // LOGIN + PERMISSION CHECK
-const ProtectedRoute = ({ permission }) => {
-  const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const location = useLocation()
+const ProtectedRoute = ({ permission, onlyDeliveryPartner }) => {
 
-  useEffect(() => {
-    const checkLogin = async () => {
-      try {
-        const res = await axios.get(
-          'http://localhost:8000/user/check-user',
-          { withCredentials: true }
-        )
-
-        if (res.data.status && res.data.user) {
-          setUser(res.data.user)
-          setIsAuthenticated(true)
-        } else {
-          setIsAuthenticated(false)
-        }
-      } catch (error) {
-        setIsAuthenticated(false)
-        setUser(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkLogin()
-  }, [location.pathname])
+  const { user, loading } = useAuth()
 
   if (loading) {
     return <p className="p-5">Checking login...</p>
   }
 
-  if (!isAuthenticated || !user) {
+  if (!user) {
     return <Navigate to="/" replace />
   }
 
-  // ROLE NAME
   const roleName = (user.roleName || '')
     .toLowerCase()
     .replace(/[_-]+/g, ' ')
     .trim()
 
-  // SUPER ADMIN HAS ACCESS TO ALL PAGES
   const isSuperAdmin = roleName === 'super admin'
 
-  // CHECK PAGE PERMISSION
+  const isDeliveryPartner = roleName === 'delivery partner'
+
+  if (onlyDeliveryPartner && !isDeliveryPartner) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   const permissions = user.permissions || []
 
   if (!isSuperAdmin && permission && !permissions.includes(permission)) {
@@ -90,104 +72,150 @@ const ProtectedRoute = ({ permission }) => {
 
 const App = () => {
   return (
-    <BrowserRouter>
-      <Routes>
+    <AuthProvider>
+      <BrowserRouter>
 
-        {/* PUBLIC ROUTE */}
-        <Route path="/" element={<Login />} />
+        <Routes>
 
-        {/* DASHBOARD */}
-        <Route
-          element={<ProtectedRoute permission="dashboard_view" />}
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-        </Route>
+          {/* PUBLIC ROUTE */}
+          <Route path="/" element={<Login />} />
 
-        {/* USER */}
-        <Route
-          element={<ProtectedRoute permission="users_view" />}
-        >
-          <Route path="/user" element={<User />} />
-        </Route>
+          {/* PROTECTED ADMIN ROUTES */}
+          <Route element={<ProtectedRoute />}>
 
-        {/* PRODUCTS */}
-        <Route
-          element={<ProtectedRoute permission="products_view" />}
-        >
-          <Route path="/products" element={<Products />} />
-        </Route>
+            {/* COMMON ADMIN LAYOUT */}
+            <Route element={<AdminLayout />}>
 
-        {/* CATEGORIES */}
-        <Route
-          element={<ProtectedRoute permission="categories_view" />}
-        >
-          <Route path="/category" element={<Category />} />
-        </Route>
+              {/* DASHBOARD */}
+              <Route
+                element={<ProtectedRoute permission="dashboard_view" />}
+              >
+                <Route path="/dashboard" element={<Dashboard />} />
+              </Route>
 
-        {/* SUBCATEGORIES */}
-        <Route
-          element={<ProtectedRoute permission="subcategories_view" />}
-        >
-          <Route path="/subcategories" element={<Subcategories />} />
-        </Route>
+              {/* USER */}
+              <Route
+                element={<ProtectedRoute permission="users_view" />}
+              >
+                <Route path="/user" element={<User />} />
+              </Route>
 
-        {/* ROLE MANAGEMENT */}
-        <Route
-          element={<ProtectedRoute permission="roles_view" />}
-        >
-          <Route path="/role" element={<Role />} />
-        </Route>
+              {/* PRODUCTS */}
+              <Route
+                element={<ProtectedRoute permission="products_view" />}
+              >
+                <Route path="/products" element={<Products />} />
+              </Route>
 
-        {/* BRANDS */}
-        <Route
-          element={<ProtectedRoute permission="brands_view" />}
-        >
-          <Route path="/brand" element={<Brand />} />
-        </Route>
+              {/* CATEGORIES */}
+              <Route
+                element={<ProtectedRoute permission="categories_view" />}
+              >
+                <Route path="/category" element={<Category />} />
+              </Route>
 
-        {/* PRODUCT VARIANTS */}
-        <Route
-          element={<ProtectedRoute permission="productvariant_view" />}
-        >
-          <Route path="/productvariant" element={<Productvariant />} />
-        </Route>
+              {/* SUBCATEGORIES */}
+              <Route
+                element={<ProtectedRoute permission="subcategories_view" />}
+              >
+                <Route path="/subcategories" element={<Subcategories />} />
+              </Route>
 
-        {/* STORE */}
-        <Route
-          element={<ProtectedRoute permission="store_view" />}
-        >
-          <Route path="/store" element={<Store />} />
-        </Route>
+              {/* ROLE MANAGEMENT */}
+              <Route
+                element={<ProtectedRoute permission="roles_view" />}
+              >
+                <Route path="/role" element={<Role />} />
+              </Route>
 
-        {/* TEMPLATE */}
-        <Route
-          element={<ProtectedRoute permission="template_view" />}
-        >
-          <Route path="/template" element={<Template />} />
-        </Route>
+              {/* BRANDS */}
+              <Route
+                element={<ProtectedRoute permission="brands_view" />}
+              >
+                <Route path="/brand" element={<Brand />} />
+              </Route>
 
-        {/* INVENTORY */}
-        <Route
-          element={<ProtectedRoute permission="storeinventory_view" />}
-        >
-          <Route path="/inventory" element={<Inventory />} />
-        </Route>
+              {/* PRODUCT VARIANTS */}
+              <Route
+                element={<ProtectedRoute permission="productvariant_view" />}
+              >
+                <Route path="/productvariant" element={<Productvariant />} />
+              </Route>
 
-        {/* ORDERS */}
-        <Route
-          element={<ProtectedRoute permission="orders_view" />}
-        >
-          <Route path="/orders" element={<Orders />} />
-        </Route>
+              {/* STORE */}
+              <Route
+                element={<ProtectedRoute permission="store_view" />}
+              >
+                <Route path="/store" element={<Store />} />
+              </Route>
 
-        {/* UNKNOWN ROUTE */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              {/* TEMPLATE */}
+              <Route
+                element={<ProtectedRoute permission="template_view" />}
+              >
+                <Route path="/template" element={<Template />} />
+              </Route>
 
+              {/* INVENTORY */}
+              <Route
+                element={<ProtectedRoute permission="storeinventory_view" />}
+              >
+                <Route path="/inventory" element={<Inventory />} />
+              </Route>
 
-      </Routes>
+              {/* ORDERS */}
+              <Route
+                element={<ProtectedRoute permission="orders_view" />}
+              >
+                <Route path="/orders" element={<Orders />} />
+              </Route>
 
-      <Toaster />
-    </BrowserRouter>
+              {/* BANNERS */}
+              <Route
+                element={<ProtectedRoute permission="banners_view" />}
+              >
+                <Route path="/banner" element={<Banner />} />
+              </Route>
+
+              {/* PENDING REASSIGNMENT */}
+              <Route
+                element={<ProtectedRoute permission="deliverypartners_manage" />}
+              >
+                <Route
+                  path="/pending-reassignment"
+                  element={<PendingReassignment />}
+                />
+              </Route>
+
+              {/* MY EARNINGS */}
+              <Route element={<ProtectedRoute onlyDeliveryPartner />}>
+                <Route path="/my-earnings" element={<MyEarnings />} />
+              </Route>
+
+              {/* ACCOUNT LAYOUT */}
+              <Route element={<AccountLayout />}>
+
+                <Route path="/my-profile" element={<MyProfile />} />
+
+                <Route
+                  path="/change-password"
+                  element={<ChangePassword />}
+                />
+
+              </Route>
+
+            </Route>
+          </Route>
+
+          {/* UNKNOWN ROUTE */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+        </Routes>
+
+        <Toaster />
+
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 

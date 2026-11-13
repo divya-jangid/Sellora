@@ -2,172 +2,206 @@
 'use client'
 
 import { useLayoutEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 
-function ResetPassword({setShowModal}) {
+function ResetPassword({ setShowModal, setCurrentForm }) {
 
-const [email , setEmail] =  useState("")
-  const [otp, setOtp] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    const [resetToken, setResetToken] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [tokenLoading, setTokenLoading] = useState(true)
 
+    useLayoutEffect(() => {
+        setResetToken(localStorage.getItem('resetToken') || '')
+        setTokenLoading(false)
+    }, [])
 
-  useLayoutEffect(()=>{
-    setEmail(localStorage.getItem("email"))
-},[])
+    const handleSubmit = async (e) => {
+        e.preventDefault()
 
+        if (newPassword.length < 8) {
+            toast.error('Password must be at least 8 characters long')
+            return
+        }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+        if (newPassword !== confirmPassword) {
+            toast.error('Passwords do not match')
+            return
+        }
 
-    if (newPassword.length < 8) {
-      toast.success('Password must be at least 8 characters long')
-      return
+        if (!resetToken) {
+            toast.error('Reset session expired. Please verify OTP again.')
+            setCurrentForm('verify-reset-otp')
+            return
+        }
+
+        try {
+            setLoading(true)
+
+            const res = await axios.post(
+                'http://localhost:8000/user/reset-password',
+                {
+                    newPassword
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${resetToken}`
+                    },
+                    withCredentials: true
+                }
+            )
+
+            if (res.data.status) {
+                toast.success(
+                    res.data.message || 'Password reset successful!'
+                )
+
+                localStorage.removeItem('email')
+                localStorage.removeItem('resetToken')
+
+                setShowModal(false)
+            } else {
+                toast.error(res.data.message || 'Password reset failed')
+            }
+
+        } catch (error) {
+            console.log(
+                'Reset Password Error:',
+                error.response?.data || error.message
+            )
+
+            toast.error(
+                error.response?.data?.message || 'Password reset failed'
+            )
+        } finally {
+            setLoading(false)
+        }
     }
 
-    if (newPassword !== confirmPassword) {
-      toast.success('Passwords do not match')
-      return
+    const inputClass = `
+        w-full min-w-0 rounded-xl border border-purple-200
+        bg-white px-4 py-3 text-sm text-gray-800
+        placeholder:text-gray-400 outline-none
+        transition duration-200
+        focus:border-purple-500 focus:ring-4 focus:ring-purple-100
+    `
+
+    const labelClass = `
+        mb-2 block text-sm font-semibold text-gray-700
+    `
+
+    const buttonClass = `
+        w-full rounded-xl bg-gradient-to-r
+        from-purple-600 to-violet-600
+        py-3.5 text-sm font-bold text-white
+        shadow-lg shadow-purple-200
+        transition duration-200
+        hover:from-purple-700 hover:to-violet-700
+        disabled:cursor-not-allowed disabled:opacity-50
+        disabled:shadow-none
+    `
+
+    if (tokenLoading) {
+        return (
+            <div className="py-10 text-center text-sm text-purple-700">
+                Loading...
+            </div>
+        )
     }
 
-    try {
-      setLoading(true)
+    if (!resetToken) {
+        return (
+            <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-5">
 
-      const res = await axios.post(
-        'http://localhost:8000/user/reset-password',
-        {
-          email,
-          otp,
-          newPassword
-        },
-        { withCredentials: true }
-      )
+                <p className="text-sm font-medium text-red-700">
+                    Reset session expired. Please verify OTP again.
+                </p>
 
-      if (res.data.status) {
-     setShowModal(false)
-      } else {
-        toast.success(res.data.message || 'Password reset failed')
-      }
-    } catch (error) {
-      console.log('Reset Password Error:', error.response?.data || error.message)
-      toast.success(error.response?.data?.message || 'Password reset failed')
-    } finally {
-      setLoading(false)
+                <button
+                    type="button"
+                    onClick={() => setCurrentForm('verify-reset-otp')}
+                    className={`${buttonClass} mt-4`}
+                >
+                    Verify OTP Again
+                </button>
+
+            </div>
+        )
     }
-  }
 
-  return (
-    <div className="mx-auto mt-16 max-w-md rounded-xl border border-purple-100 bg-white p-8 shadow-sm">
-      <h2 className="text-2xl font-bold text-purple-900">
-        Reset Password
-      </h2>
+    return (
+        <div className="mx-auto w-full min-w-0 max-w-md">
 
-      <p className="mb-6 mt-2 text-gray-500">
-        Enter the OTP sent to your email and choose a new password.
-      </p>
+            {/* Heading */}
+            <div className="mb-7 text-center sm:text-left">
 
-      {!email ? (
-        <div>
-          <p className="text-sm text-red-600">
-            Email is missing. Please start from Forgot Password.
-          </p>
+                <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl shadow-sm">
+                    🔐
+                </div>
 
-          <button
-            type="button"
-            onClick={() => router.push('/forgot-password')}
-            className="mt-4 w-full rounded-lg bg-purple-600 py-3 font-semibold text-white hover:bg-purple-700"
-          >
-            Go to Forgot Password
-          </button>
+                <h2 className="text-2xl font-extrabold tracking-tight text-purple-950 sm:text-3xl">
+                    Reset Password
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                    Create a new password for your Sellora account.
+                </p>
+
+            </div>
+
+            {/* Password Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+                <div>
+                    <label className={labelClass}>
+                        New Password
+                    </label>
+
+                    <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password"
+                        minLength={8}
+                        required
+                        className={inputClass}
+                    />
+
+                    <p className="mt-1.5 text-xs text-gray-400">
+                        Password must be at least 8 characters.
+                    </p>
+                </div>
+
+                <div>
+                    <label className={labelClass}>
+                        Confirm New Password
+                    </label>
+
+                    <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm your new password"
+                        minLength={8}
+                        required
+                        className={inputClass}
+                    />
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className={buttonClass}
+                >
+                    {loading ? 'Resetting Password...' : 'Reset Password'}
+                </button>
+
+            </form>
+
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
-
-            <input
-              type="email"
-              value={email}
-              readOnly
-              className="w-full rounded-lg border bg-gray-50 px-4 py-3 text-gray-600"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              OTP
-            </label>
-
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={otp}
-              onChange={(e) =>
-                setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-              }
-              placeholder="Enter 6-digit OTP"
-              required
-              className="w-full rounded-lg border border-purple-200 px-4 py-3 text-center tracking-widest outline-none focus:border-purple-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              New Password
-            </label>
-
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-              minLength={8}
-              required
-              className="w-full rounded-lg border border-purple-200 px-4 py-3 outline-none focus:border-purple-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Confirm New Password
-            </label>
-
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-              minLength={8}
-              required
-              className="w-full rounded-lg border border-purple-200 px-4 py-3 outline-none focus:border-purple-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || otp.length !== 6}
-            className="w-full rounded-lg bg-purple-600 py-3 font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-          >
-            {loading ? 'Resetting Password...' : 'Reset Password'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => router.push('/forgot-password')}
-            className="w-full py-2 text-sm font-medium text-purple-600 hover:underline"
-          >
-            Request a New OTP
-          </button>
-        </form>
-      )}
-    </div>
-  )
+    )
 }
 
 export default ResetPassword

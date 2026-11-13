@@ -6,6 +6,8 @@ import Header from "@/components/Header";
 import { CartProvider } from '../context/CartContext'
 import { Toaster } from 'react-hot-toast'
 import Footer from "@/components/Footer";
+import { LocationProvider } from '../context/LocationContext'
+import LocationModal from "@/components/LocationModal";
 
 
 const geistSans = Geist({
@@ -23,34 +25,23 @@ export const metadata: Metadata = {
   description: "Shop, sell and grow with Sellora",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
+        <LocationProvider>
+          <CartProvider>
+            <LocationModal/>
+            <Header />
+            {children}
+            <Footer />
+          </CartProvider>
+        </LocationProvider>
 
-        <CartProvider>
-          <Header />
-
-        
-          {children}
-          <Footer/>
-        </CartProvider>
-
-
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 2000
-          }}
-        />
+        <Toaster position="top-center" toastOptions={{ duration: 2000 }} />
       </body>
     </html>
   );
 }
+

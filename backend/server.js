@@ -43,6 +43,8 @@ const wishlistItemRoute = require('./routes/wishlistitemRoute')
 const dashboardRoutes = require('./routes/dashboardRoute')
 const deliveryPartnerRoute = require('./routes/deliverypartnerRoute')
 const deliveryRoute = require('./routes/deliveryRoute')
+const bannerRoute = require('./routes/bannerRoute');
+
 
 
 
@@ -68,7 +70,7 @@ app.use('/wishlist',wishlistRoute)
 app.use('/wishlist-item',wishlistItemRoute)
 app.use('/deliverypartner',deliveryPartnerRoute)
 app.use('/delivery', deliveryRoute)
-
+app.use('/banner', bannerRoute);
 
 
 

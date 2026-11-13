@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -16,6 +17,7 @@ const Page = () => {
     const [wishlistAction, setWishlistAction] = useState(null)
     const [addingProduct, setAddingProduct] = useState(null)
     const [updatingItem, setUpdatingItem] = useState(null)
+    const [loadingProducts, setLoadingProducts] = useState(true)
 
     const {
         cartItems,
@@ -28,26 +30,43 @@ const Page = () => {
         loadingWishlist: wishlistLoading
     } = useCart()
 
-    // GET FEATURED PRODUCT VARIANTS
+    // GET FEATURED PRODUCTS
     const getVariants = async () => {
         try {
+            setLoadingProducts(true)
+
             const res = await axios.get(
-                'http://localhost:8000/productvariant/public'
+                'http://localhost:8000/product/featured',
+                {
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    },
+                    params: {
+                        t: Date.now()
+                    }
+                }
             )
 
-            const variantData =
-                res.data?.variants ||
-                res.data?.data?.variants ||
-                res.data?.data ||
-                []
+            const featuredProducts = res.data?.data || []
 
-            setVariants(Array.isArray(variantData) ? variantData : [])
+            const featuredVariantData = featuredProducts.flatMap((product) => {
+                return (product.variants || [])
+                    .filter((variant) => variant.status === 'active')
+                    .map((variant) => ({
+                        ...variant,
+                        product
+                    }))
+            })
+
+            setVariants(featuredVariantData)
 
         } catch (err) {
             console.log(
-                'GET VARIANTS ERROR:',
+                'GET FEATURED PRODUCTS ERROR:',
                 err.response?.data || err.message
             )
+        } finally {
+            setLoadingProducts(false)
         }
     }
 
@@ -146,9 +165,6 @@ const Page = () => {
         }
     }
 
-
-    // BUY NOW
-
     // BUY NOW
     const handleBuyNow = (item) => {
         try {
@@ -159,12 +175,14 @@ const Page = () => {
 
             const productId = product?._id
 
+            console.log('PRODUCT DATA>>>>:', product)
+            console.log('PRODUCT SLUG>>>>>>>>>>>>:', product?.slug)
+
             if (!productId) {
                 toast.error('Product not found.')
                 return
             }
 
-            // SAVE ONLY SELECTED BUY NOW PRODUCT
             const buyNowData = {
                 productId: productId,
                 variantId: item._id,
@@ -183,7 +201,6 @@ const Page = () => {
                 JSON.stringify(buyNowData)
             )
 
-            // DIRECT CHECKOUT
             const requestId = Date.now()
 
             router.push(
@@ -196,7 +213,6 @@ const Page = () => {
         }
     }
 
-    
     // UPDATE CART QUANTITY / REMOVE ITEM
     const updateQuantity = async (cartItem, newQuantity) => {
         try {
@@ -230,11 +246,8 @@ const Page = () => {
         getVariants()
     }, [])
 
-    // ONLY FEATURED ACTIVE VARIANTS
     const featuredVariants = variants.filter(
-        (variant) =>
-            variant.isFeatured === true &&
-            variant.status === 'active'
+        (variant) => variant.status === 'active'
     )
 
     return (
@@ -242,37 +255,97 @@ const Page = () => {
             <Banner />
             <CategoryNavbar />
 
-            <main className="min-h-screen bg-purple-50 px-4 py-8 sm:px-8">
-                <div className="mx-auto max-w-7xl">
+            <main className="min-h-screen bg-[#faf9ff]">
 
-                    <div className="mb-8">
-                        <p className="mb-2 text-sm font-semibold text-purple-600">
-                            FRESH FINDS FOR YOU
-                        </p>
+                <div className="mx-auto max-w-[1500px] px-3 py-8 sm:px-6 sm:py-10 lg:px-10">
 
-                        <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-                            Featured Products
-                        </h1>
+                    {/* SECTION HEADING */}
+                    <section className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
 
-                        <p className="mt-2 text-gray-500">
-                            Discover your everyday essentials.
-                        </p>
-                    </div>
+                        <div>
+                            <div className="mb-3 flex items-center gap-2">
+                                <span className="h-1 w-8 rounded-full bg-purple-600"></span>
 
-                    {featuredVariants.length === 0 ? (
-                        <div className="rounded-2xl bg-white px-5 py-16 text-center shadow-sm">
-                            <p className="text-lg font-semibold text-gray-700">
-                                No featured products available
-                            </p>
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-600">
+                                    Handpicked for you
+                                </p>
+                            </div>
 
-                            <p className="mt-2 text-sm text-gray-500">
-                                Featured variants will appear here once available.
+                            <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl lg:text-4xl">
+                                Featured Products
+                                <span className="ml-2 text-purple-600">💜</span>
+                            </h2>
+
+                            <p className="mt-2 text-sm text-gray-500 sm:text-base">
+                                Discover products you'll love, at prices you'll enjoy.
                             </p>
                         </div>
+
+                        <Link
+                            href="/AllProducts"
+                            className="inline-flex w-fit items-center gap-2 rounded-xl border border-purple-200 bg-white px-5 py-3 text-sm font-bold text-purple-700 shadow-sm transition duration-300 hover:border-purple-600 hover:bg-purple-600 hover:text-white"
+                        >
+                            View All Products
+                            <span className="text-lg">→</span>
+                        </Link>
+
+                    </section>
+
+                    <div className="mb-7 h-px w-full bg-gradient-to-r from-purple-200 via-purple-100 to-transparent"></div>
+
+                    {/* LOADING */}
+                    {loadingProducts ? (
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+
+                            {Array.from({ length: 12 }).map((_, index) => (
+                                <div
+                                    key={index}
+                                    className="animate-pulse rounded-2xl border border-purple-100 bg-white p-3 shadow-sm"
+                                >
+                                    <div className="h-36 rounded-xl bg-purple-100 sm:h-44"></div>
+                                    <div className="mt-4 h-4 w-4/5 rounded bg-gray-200"></div>
+                                    <div className="mt-3 h-3 w-2/3 rounded bg-gray-100"></div>
+                                    <div className="mt-4 h-5 w-1/2 rounded bg-purple-100"></div>
+                                    <div className="mt-4 h-9 rounded-lg bg-purple-100"></div>
+                                    <div className="mt-2 h-9 rounded-lg bg-gray-100"></div>
+                                </div>
+                            ))}
+
+                        </div>
+
+                    ) : featuredVariants.length === 0 ? (
+
+                        <div className="rounded-3xl border border-purple-100 bg-white px-5 py-16 text-center shadow-sm">
+
+                            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-purple-50 text-4xl">
+                                🛍️
+                            </div>
+
+                            <h3 className="mt-5 text-xl font-bold text-gray-800">
+                                No Featured Products Yet
+                            </h3>
+
+                            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
+                                We're getting some amazing products ready for you.
+                                Please check back soon!
+                            </p>
+
+                            <Link
+                                href="/AllProducts"
+                                className="mt-6 inline-flex rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+                            >
+                                Explore All Products →
+                            </Link>
+
+                        </div>
+
                     ) : (
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 
                             {featuredVariants.map((item) => {
+
                                 const product =
                                     typeof item.product === 'object'
                                         ? item.product
@@ -301,26 +374,34 @@ const Page = () => {
                                 return (
                                     <div
                                         key={item._id}
-                                        className="group overflow-hidden rounded-2xl border border-purple-100 bg-white p-3 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
+                                        className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-purple-100 bg-white p-2.5 shadow-[0_3px_15px_rgba(91,33,182,0.04)] transition duration-300 hover:-translate-y-1 hover:border-purple-300 hover:shadow-[0_12px_30px_rgba(91,33,182,0.12)] sm:p-3"
                                     >
-                                        {/* PRODUCT IMAGE AND HEART */}
-                                        <div className="relative">
+
+                                        {/* PRODUCT IMAGE */}
+                                        <div className="relative overflow-hidden rounded-xl bg-[#f7f3ff]">
+
                                             <Link href={`/product/${product?.slug || ''}`}>
-                                                <div className="flex h-36 cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-purple-50 sm:h-44">
+                                                <div className="flex h-36 cursor-pointer items-center justify-center p-3 sm:h-44 lg:h-48">
+
                                                     {image ? (
                                                         <img
                                                             src={image}
                                                             alt={product?.name || item.name || 'Product'}
-                                                            className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105"
+                                                            loading="lazy"
+                                                            className="h-full w-full object-contain transition duration-500 group-hover:scale-110"
                                                         />
                                                     ) : (
-                                                        <p className="text-sm text-gray-400">
-                                                            No image
-                                                        </p>
+                                                        <span className="text-sm text-gray-400">
+                                                            No image available
+                                                        </span>
                                                     )}
+
                                                 </div>
                                             </Link>
 
+
+
+                                            {/* WISHLIST */}
                                             <button
                                                 type="button"
                                                 disabled={
@@ -328,15 +409,13 @@ const Page = () => {
                                                     wishlistLoading ||
                                                     !productId
                                                 }
-                                                onClick={() =>
-                                                    toggleWishlist(productId)
-                                                }
+                                                onClick={() => toggleWishlist(productId)}
                                                 aria-label={
                                                     isWishlisted
                                                         ? 'Remove from wishlist'
                                                         : 'Add to wishlist'
                                                 }
-                                                className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl shadow-md transition hover:scale-110 disabled:opacity-50"
+                                                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-xl shadow-md transition hover:scale-110 hover:bg-purple-50 disabled:opacity-50 sm:h-9 sm:w-9"
                                             >
                                                 <span
                                                     className={
@@ -348,92 +427,113 @@ const Page = () => {
                                                     {isWishlisted ? '♥' : '♡'}
                                                 </span>
                                             </button>
+
                                         </div>
 
                                         {/* PRODUCT DETAILS */}
-                                        <Link href={`/product/${product?.slug || ''}`}>
-                                            <p className="mb-2 mt-3 line-clamp-2 min-h-10 cursor-pointer text-sm font-semibold text-gray-800 hover:text-purple-700">
-                                                {product?.name || 'Product'}
-                                            </p>
+                                        <div className="flex flex-1 flex-col">
 
-                                            <p className="text-sm text-gray-500">
-                                                {item.name}
-                                            </p>
+                                            <Link href={`/product/${product?.slug || ''}`}>
 
-                                            <div className="mb-3 mt-1 flex items-center gap-2">
-                                                <p className="text-base font-bold text-purple-800">
-                                                    ₹{item.sellingPrice}
+                                                <h3 className="mb-1 mt-3 line-clamp-2 min-h-10 text-xs font-bold leading-5 text-gray-800 transition hover:text-purple-700 sm:text-sm">
+                                                    {product?.name || 'Product'}
+                                                </h3>
+
+                                                <p className="line-clamp-1 text-[11px] text-gray-500 sm:text-xs">
+                                                    {item.name}
                                                 </p>
 
-                                                {item.mrp > item.sellingPrice && (
-                                                    <p className="text-xs text-gray-400 line-through">
-                                                        ₹{item.mrp}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </Link>
+                                            </Link>
 
-                                        {/* ADD TO CART / QUANTITY CONTROLS */}
-                                        {!cartItem ? (
-                                            <button
-                                                type="button"
-                                                disabled={isAdding}
-                                                onClick={() => addToCart(item)}
-                                                className="w-full rounded-lg border border-purple-600 px-2 py-2 text-xs font-bold text-purple-700 transition hover:bg-purple-600 hover:text-white disabled:opacity-50"
-                                            >
-                                                {isAdding ? 'ADDING...' : 'ADD TO CART'}
-                                            </button>
-                                        ) : (
-                                            <div className="flex w-full items-center justify-between rounded-lg bg-purple-600 p-1 text-white">
-                                                <button
-                                                    type="button"
-                                                    disabled={isUpdating}
-                                                    onClick={() =>
-                                                        updateQuantity(
-                                                            cartItem,
-                                                            quantity - 1
-                                                        )
-                                                    }
-                                                    className="h-8 w-8 rounded-md text-xl font-bold hover:bg-purple-700 disabled:opacity-50"
-                                                >
-                                                    −
-                                                </button>
+                                            {/* PRICE */}
+                                            <div className="mb-3 mt-2 flex flex-wrap items-center gap-1.5">
 
-                                                <span className="min-w-6 text-center font-bold">
-                                                    {quantity}
+                                                <span className="text-sm font-extrabold text-purple-800 sm:text-base">
+                                                    ₹{item.sellingPrice}
                                                 </span>
 
+                                                {item.mrp > item.sellingPrice && (
+                                                    <span className="text-[10px] text-gray-400 line-through sm:text-xs">
+                                                        ₹{item.mrp}
+                                                    </span>
+                                                )}
+
+                                            </div>
+
+                                            {/* CART ACTIONS */}
+                                            <div className="mt-auto">
+
+                                                {!cartItem ? (
+
+                                                    <button
+                                                        type="button"
+                                                        disabled={isAdding}
+                                                        onClick={() => addToCart(item)}
+                                                        className="w-full rounded-lg bg-purple-600 px-1.5 py-2.5 text-[10px] font-extrabold tracking-wide text-white transition hover:bg-purple-700 hover:shadow-md hover:shadow-purple-200 disabled:opacity-50 sm:text-xs"
+                                                    >
+                                                        {isAdding ? 'ADDING...' : '+ ADD TO CART'}
+                                                    </button>
+
+                                                ) : (
+
+                                                    <div className="flex w-full items-center justify-between rounded-lg bg-purple-600 p-1 text-white">
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isUpdating}
+                                                            onClick={() =>
+                                                                updateQuantity(
+                                                                    cartItem,
+                                                                    quantity - 1
+                                                                )
+                                                            }
+                                                            className="h-7 w-7 rounded-md text-lg font-bold transition hover:bg-purple-700 disabled:opacity-50 sm:h-8 sm:w-8"
+                                                        >
+                                                            −
+                                                        </button>
+
+                                                        <span className="min-w-6 text-center text-xs font-bold sm:text-sm">
+                                                            {quantity}
+                                                        </span>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isUpdating}
+                                                            onClick={() =>
+                                                                updateQuantity(
+                                                                    cartItem,
+                                                                    quantity + 1
+                                                                )
+                                                            }
+                                                            className="h-7 w-7 rounded-md text-lg font-bold transition hover:bg-purple-700 disabled:opacity-50 sm:h-8 sm:w-8"
+                                                        >
+                                                            +
+                                                        </button>
+
+                                                    </div>
+
+                                                )}
+
+                                                {/* BUY NOW */}
                                                 <button
                                                     type="button"
-                                                    disabled={isUpdating}
-                                                    onClick={() =>
-                                                        updateQuantity(
-                                                            cartItem,
-                                                            quantity + 1
-                                                        )
-                                                    }
-                                                    className="h-8 w-8 rounded-md text-xl font-bold hover:bg-purple-700 disabled:opacity-50"
+                                                    onClick={() => handleBuyNow(item)}
+                                                    className="mt-2 w-full rounded-lg border border-purple-200 bg-purple-50 px-1.5 py-2.5 text-[10px] font-extrabold tracking-wide text-purple-700 transition hover:border-purple-600 hover:bg-purple-100 sm:text-xs"
                                                 >
-                                                    +
+                                                    BUY NOW →
                                                 </button>
-                                            </div>
-                                        )}
 
-                                        {/* BUY NOW BUTTON */}
-                                        <button
-                                            type="button"
-                                            disabled={isAdding}
-                                            onClick={() => handleBuyNow(item)}
-                                            className="mt-2 w-full rounded-lg bg-purple-100 px-2 py-2 text-xs font-bold text-purple-700 transition hover:bg-purple-200 disabled:opacity-50"
-                                        >
-                                            {isAdding ? 'PLEASE WAIT...' : 'BUY NOW'}
-                                        </button>
+                                            </div>
+
+                                        </div>
+
                                     </div>
                                 )
                             })}
 
                         </div>
                     )}
+
                 </div>
             </main>
         </>

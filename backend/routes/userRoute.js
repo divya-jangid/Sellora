@@ -7,6 +7,7 @@ const {
     verifyEmail,
     forgotPassword ,
     resetPassword,
+    verifyResetOTP,
     userLogin,
     checkUser,
     createUser,
@@ -14,8 +15,10 @@ const {
     updateUser,
     deleteUser,
     updateMyProfile,
+    deactivateMyAccount,
     logout,
-    setPassword
+    setPassword,
+    updateUserStatus
 } = require('../controllers/usercontroller')
 
 const adminAuth = require('../middleware/adminAuth')
@@ -60,12 +63,21 @@ router.delete(
 
 router.post('/forgot-password', forgotPassword)
 router.post('/reset-password', resetPassword)
+router.post('/verify-reset-otp', verifyResetOTP)
+
 router.put('/my-profile', userAuth, updateMyProfile)
+
+router.put('/deactivate-account', userAuth, deactivateMyAccount);
 
 router.post('/verify-email', verifyEmail)
 
 router.post('/logout', logout)
 router.post('/set-password/:token', setPassword)
-
+router.put(
+    '/update-status/:id',
+    adminAuth,
+    checkPermission('users_edit'),
+    updateUserStatus
+)
 
 module.exports = router

@@ -6,11 +6,14 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import axios from 'axios'
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
+import { useLocationContext } from '@/context/LocationContext'
 import { toast } from 'react-hot-toast'
 
 const API = 'http://localhost:8000'
+const LIMIT = 10
 
 export default function CategoryPage() {
+
     const params = useParams()
     const categorySlug = params.categorySlug || params.categoryId
 
@@ -18,6 +21,10 @@ export default function CategoryPage() {
     const searchParams = useSearchParams()
 
     const subcategorySlug = searchParams.get('subcategory') || 'all'
+
+    const { selectedStore, locationLoading } = useLocationContext()
+
+    const storeId = selectedStore?._id
 
     const {
         cartItems = [],
@@ -33,122 +40,207 @@ export default function CategoryPage() {
     const [subcategories, setSubcategories] = useState([])
     const [products, setProducts] = useState([])
     const [variants, setVariants] = useState([])
+
     const [loading, setLoading] = useState(true)
     const [errorMessage, setErrorMessage] = useState('')
 
-    // FETCH CATEGORY, SUBCATEGORY, PRODUCTS AND VARIANTS
+    // SEARCH, SORTING AND PAGINATION
+    const [search, setSearch] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
+
+    const [sortBy, setSortBy] = useState('createdAt')
+    const [order, setOrder] = useState('desc')
+
+    const [page, setPage] = useState(1)
+    const [pagination, setPagination] = useState(null)
+
+    // SEARCH DEBOUNCE
     useEffect(() => {
+
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim())
+        }, 500)
+
+        return () => clearTimeout(timer)
+
+    }, [search])
+
+    // FETCH CATEGORY, SUBCATEGORY AND PRODUCTS
+    useEffect(() => {
+
         let isMounted = true
 
         const getCategoryData = async () => {
+
+            if (locationLoading) return
+
+            if (!storeId) {
+                setCategory(null)
+                setSubcategories([])
+                setProducts([])
+                setVariants([])
+                setPagination(null)
+                setLoading(false)
+                setErrorMessage('Please select your location first.')
+                return
+            }
+
             try {
+
                 setLoading(true)
                 setErrorMessage('')
 
                 const [
                     categoryRes,
                     subcategoryRes,
-                    productRes,
-                    variantRes
+                    productRes
                 ] = await Promise.all([
-                    axios.get(`${API}/category/public`),
-                    axios.get(`${API}/subcategory/public`),
-                    axios.get(`${API}/product/public`),
 
-                    // FETCH VARIANTS BASED ON CATEGORY AND SUBCATEGORY SLUG
-                    axios.get(`${API}/productvariant/public`, {
+                    axios.get(`${API}/category/public`, {
+                        params: { storeId }
+                    }),
+
+                    axios.get(`${API}/subcategory/public`, {
+                        params: { storeId }
+                    }),
+
+                    axios.get(`${API}/product/public`, {
                         params: {
-                            categorySlug: categorySlug,
-                            subcategorySlug: subcategorySlug
+                            storeId,
+                            categorySlug,
+
+                            ...(subcategorySlug !== 'all' && {
+                                subcategorySlug
+                            }),
+
+                            page,
+                            limit: LIMIT,
+                            search: debouncedSearch,
+                            sortBy,
+                            order
                         }
                     })
+
                 ])
 
+                // CATEGORY RESPONSE
                 const categories =
                     categoryRes.data?.data?.categories ||
                     categoryRes.data?.categories ||
                     categoryRes.data?.data ||
                     []
 
+                // SUBCATEGORY RESPONSE
                 const allSubcategories =
                     subcategoryRes.data?.data?.subcategories ||
                     subcategoryRes.data?.subcategories ||
                     subcategoryRes.data?.data ||
                     []
 
+                // PRODUCT RESPONSE
                 const allProducts =
                     productRes.data?.data?.products ||
                     productRes.data?.products ||
                     productRes.data?.data ||
                     []
 
-                // PRODUCT VARIANT API RESPONSE
-                const allVariants =
-                    variantRes.data?.data?.variants ||
-                    variantRes.data?.variants ||
-                    variantRes.data?.data ||
-                    []
+                console.log('ALL PRODUCTS:', allProducts)
+
+                console.log(
+                    'FIRST PRODUCT:',
+                    allProducts[0]
+                )
+
+                console.log(
+                    'PRODUCT KEYS:',
+                    Object.keys(allProducts[0] || {})
+                )
 
                 if (
                     !Array.isArray(categories) ||
                     !Array.isArray(allSubcategories) ||
-                    !Array.isArray(allProducts) ||
-                    !Array.isArray(allVariants)
+                    !Array.isArray(allProducts)
                 ) {
                     throw new Error('Invalid API response')
                 }
 
-                // FIND SELECTED CATEGORY
+                // FIND CATEGORY
                 const selectedCategory = categories.find(
                     item => String(item.slug) === String(categorySlug)
                 )
 
                 if (!selectedCategory) {
+
                     if (isMounted) {
                         setCategory(null)
                         setSubcategories([])
                         setProducts([])
                         setVariants([])
+                        setPagination(null)
                     }
+
                     return
                 }
 
                 const categoryId = String(selectedCategory._id)
 
-                // FILTER SUBCATEGORIES BY CATEGORY
+                // CATEGORY SUBCATEGORIES
                 const categorySubcategories = allSubcategories.filter(item => {
+
                     const id = item.category?._id || item.category
+
                     return String(id) === categoryId
                 })
 
-                // FILTER PRODUCTS BY CATEGORY
-                const categoryProducts = allProducts.filter(item => {
-                    const id = item.category?._id || item.category
-                    return String(id) === categoryId
-                })
+                // AVAILABLE VARIANTS
+                const categoryVariants = allProducts.flatMap(product => {
 
-                // API ALREADY RETURNS CATEGORY/SUBCATEGORY FILTERED VARIANTS
-                // NO NEED TO FETCH ALL VARIANTS AND FILTER THEM AGAIN
+                    return (product.variants || [])
+                        .filter(variant =>
+                            variant.status === 'active' &&
+                            Number(variant.availableQuantity) > 0
+                        )
+                        .map(variant => ({
+                            ...variant,
+                            product: product._id
+                        }))
+
+                })
 
                 if (isMounted) {
+
                     setCategory(selectedCategory)
                     setSubcategories(categorySubcategories)
-                    setProducts(categoryProducts)
-                    setVariants(allVariants)
+                    setProducts(allProducts)
+                    setVariants(categoryVariants)
+
+                    setPagination(
+                        productRes.data?.pagination || null
+                    )
                 }
 
             } catch (error) {
+
                 console.log('CATEGORY FETCH ERROR:', error)
                 console.log('ERROR RESPONSE:', error.response?.data)
 
                 if (isMounted) {
+
+                    setCategory(null)
+                    setSubcategories([])
+                    setProducts([])
+                    setVariants([])
+                    setPagination(null)
+
                     setErrorMessage(
                         error.response?.data?.message ||
                         error.message ||
                         'Unable to load category.'
                     )
                 }
+
             } finally {
+
                 if (isMounted) {
                     setLoading(false)
                 }
@@ -166,13 +258,28 @@ export default function CategoryPage() {
             isMounted = false
         }
 
-    }, [categorySlug, subcategorySlug])
+    }, [
+        categorySlug,
+        subcategorySlug,
+        storeId,
+        locationLoading,
+        page,
+        debouncedSearch,
+        sortBy,
+        order
+    ])
 
     // CHANGE SUBCATEGORY
     const handleSubcategoryChange = slug => {
+
+        setPage(1)
+
         if (slug === 'all') {
+
             router.push(`/category/${categorySlug}`)
+
         } else {
+
             router.push(
                 `/category/${categorySlug}?subcategory=${encodeURIComponent(slug)}`
             )
@@ -184,31 +291,57 @@ export default function CategoryPage() {
         item => item.slug === subcategorySlug
     )
 
-    // FILTER PRODUCTS BY SUBCATEGORY
-    const filteredProducts = subcategorySlug === 'all'
-        ? products
-        : products.filter(item => {
-            const id = item.subCategory?._id || item.subCategory
+    // SEARCH
+    const handleSearch = value => {
+        setSearch(value)
+        setPage(1)
+    }
 
-            return String(id) === String(selectedSubcategory?._id)
+    // SORTING
+    const handleSort = value => {
+
+        const [field, direction] = value.split('-')
+
+        setSortBy(field)
+        setOrder(direction)
+        setPage(1)
+    }
+
+    // PAGINATION
+    const changePage = newPage => {
+
+        if (
+            newPage < 1 ||
+            (pagination && newPage > pagination.totalPages)
+        ) {
+            return
+        }
+
+        setPage(newPage)
+
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
         })
+    }
 
     // GET PRODUCT VARIANTS
     const getProductVariants = productId => {
+
         return variants.filter(variant => {
+
             const id = variant.product?._id || variant.product
 
             return String(id) === String(productId)
         })
     }
 
-    // GET DEFAULT VARIANT (LOWEST PRICE)
+    // GET DEFAULT VARIANT
     const getDefaultVariant = productId => {
+
         const productVariants = getProductVariants(productId)
 
-        if (!productVariants.length) {
-            return null
-        }
+        if (!productVariants.length) return null
 
         return [...productVariants].sort(
             (a, b) => Number(a.sellingPrice) - Number(b.sellingPrice)
@@ -217,7 +350,9 @@ export default function CategoryPage() {
 
     // FIND CART ITEM
     const getCartItem = (productId, variantId) => {
+
         return cartItems.find(cartItem => {
+
             const cartProductId =
                 cartItem.product?._id || cartItem.product
 
@@ -233,7 +368,9 @@ export default function CategoryPage() {
 
     // ADD TO CART
     const handleAddToCart = async (productId, variantId) => {
+
         try {
+
             if (!variantId) {
                 toast.error('Product is currently unavailable.')
                 return
@@ -242,7 +379,9 @@ export default function CategoryPage() {
             await addCartItem(productId, 1, variantId)
 
             toast.success('Product added to cart!')
+
         } catch (error) {
+
             console.log('ADD CART ERROR:', error)
 
             toast.error(
@@ -254,7 +393,9 @@ export default function CategoryPage() {
 
     // BUY NOW
     const handleBuyNow = (product, variant) => {
+
         try {
+
             if (!product || !variant) {
                 toast.error('Product variant not available.')
                 return
@@ -291,6 +432,7 @@ export default function CategoryPage() {
             router.push(`/checkout?mode=buy-now&t=${Date.now()}`)
 
         } catch (error) {
+
             console.log('BUY NOW ERROR:', error)
             toast.error('Unable to proceed to checkout.')
         }
@@ -298,12 +440,16 @@ export default function CategoryPage() {
 
     // INCREASE QUANTITY
     const handleIncrease = async cartItem => {
+
         try {
+
             await updateCartItem(
                 cartItem._id,
                 cartItem.quantity + 1
             )
+
         } catch (error) {
+
             console.log('INCREASE ERROR:', error)
             toast.error('Unable to update quantity.')
         }
@@ -311,16 +457,23 @@ export default function CategoryPage() {
 
     // DECREASE QUANTITY
     const handleDecrease = async cartItem => {
+
         try {
+
             if (cartItem.quantity <= 1) {
+
                 await removeCartItem(cartItem._id)
+
             } else {
+
                 await updateCartItem(
                     cartItem._id,
                     cartItem.quantity - 1
                 )
             }
+
         } catch (error) {
+
             console.log('DECREASE ERROR:', error)
             toast.error('Unable to update quantity.')
         }
@@ -328,7 +481,9 @@ export default function CategoryPage() {
 
     // CHECK WISHLIST
     const isInWishlist = productId => {
+
         return wishlistItems.some(item => {
+
             const id = item.product?._id || item.product
 
             return String(id) === String(productId)
@@ -337,96 +492,50 @@ export default function CategoryPage() {
 
     // ADD / REMOVE WISHLIST
     const handleWishlist = async productId => {
+
         try {
+
             const wishlistItem = wishlistItems.find(item => {
+
                 const id = item.product?._id || item.product
 
                 return String(id) === String(productId)
             })
 
             if (wishlistItem) {
+
                 await removeFromWishlist(wishlistItem._id)
                 toast.success('Removed from wishlist')
+
             } else {
+
                 await addToWishlist(productId)
                 toast.success('Added to wishlist')
             }
+
         } catch (error) {
+
             console.log('WISHLIST ERROR:', error)
-            toast.error('Unable to update wishlist.')
+
+            toast.error(
+                error.response?.data?.message ||
+                'Unable to update wishlist.'
+            )
         }
     }
 
-    // LOADING
-    if (loading) {
-        return (
-            <p className="p-8 text-center">
-                Loading category...
-            </p>
-        )
-    }
-
-    // API ERROR
-    if (errorMessage) {
-        return (
-            <div className="p-8 text-center">
-                <p className="text-red-600">
-                    {errorMessage}
-                </p>
-
-                <button
-                    onClick={() => window.location.reload()}
-                    className="mt-4 rounded-lg bg-purple-600 px-5 py-2 text-white"
-                >
-                    Try Again
-                </button>
-            </div>
-        )
-    }
-
-    // CATEGORY NOT FOUND
-    if (!category) {
-        return (
-            <div className="p-8 text-center">
-                <h2 className="text-xl font-semibold">
-                    Category not found
-                </h2>
-
-                <Link
-                    href="/"
-                    className="mt-4 inline-block text-purple-600"
-                >
-                    Go to Home
-                </Link>
-            </div>
-        )
-    }
-
-    // INVALID SUBCATEGORY
-    if (subcategorySlug !== 'all' && !selectedSubcategory) {
-        return (
-            <div className="p-8 text-center">
-                <h2 className="text-xl font-semibold">
-                    Subcategory not found
-                </h2>
-
-                <button
-                    onClick={() => handleSubcategoryChange('all')}
-                    className="mt-4 rounded-lg bg-purple-600 px-5 py-2 text-white"
-                >
-                    View All Products
-                </button>
-            </div>
-        )
-    }
+    // FILTERED PRODUCTS ARE ALREADY FILTERED BY BACKEND
+    const filteredProducts = products
 
     // PREPARE DISPLAY CARDS
     const displayCards = subcategorySlug === 'all'
+
         ? filteredProducts.map(product => ({
             type: 'product',
             product,
             variant: getDefaultVariant(product._id)
         }))
+
         : filteredProducts.flatMap(product =>
             getProductVariants(product._id).map(variant => ({
                 type: 'variant',
@@ -435,111 +544,425 @@ export default function CategoryPage() {
             }))
         )
 
-    return (
-        <main className="min-h-screen bg-purple-50 px-4 py-8 md:px-10">
-            <div className="mx-auto max-w-7xl">
+    // LOCATION LOADING
+    // IMPORTANT: This must stay inside CategoryPage function.
+    if (locationLoading) {
 
-                {/* CATEGORY TITLE */}
-                <h1 className="text-3xl font-bold text-gray-900">
-                    {category.name}
-                </h1>
+        return (
+            <main className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
 
-                <p className="mt-2 text-gray-600">
-                    Explore products by category
-                </p>
+                <div className="text-center">
 
-                {/* SUBCATEGORY FILTER */}
-                <div className="mt-8">
-                    <h2 className="mb-4 text-xl font-semibold text-gray-900">
-                        Shop by Subcategory
+                    <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-purple-100 border-t-purple-600"></div>
+
+                    <h2 className="text-lg font-bold text-gray-800">
+                        Finding your location
                     </h2>
 
-                    <div className="flex gap-5 overflow-x-auto pb-4">
+                    <p className="mt-2 text-sm text-gray-500">
+                        Please wait while we prepare your store...
+                    </p>
+
+                </div>
+
+            </main>
+        )
+    }
+
+    // LOADING
+    if (loading && !category) {
+
+        return (
+            <main className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
+
+                <div className="text-center">
+
+                    <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-purple-100 border-t-purple-600"></div>
+
+                    <h2 className="text-lg font-bold text-gray-800">
+                        Loading category
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                        Getting products for you...
+                    </p>
+
+                </div>
+
+            </main>
+        )
+    }
+
+    // API ERROR
+    if (errorMessage) {
+
+        return (
+            <main className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
+
+                <div className="w-full max-w-md rounded-3xl border border-purple-100 bg-white p-8 text-center shadow-sm">
+
+                    <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 text-4xl">
+                        !
+                    </div>
+
+                    <h2 className="text-xl font-bold text-gray-900">
+                        Unable to Load Category
+                    </h2>
+
+                    <p className="mt-3 text-sm text-gray-500">
+                        {errorMessage}
+                    </p>
+
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="mt-6 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+                    >
+                        Try Again
+                    </button>
+
+                </div>
+
+            </main>
+        )
+    }
+
+    // CATEGORY NOT FOUND
+    if (!category) {
+
+        return (
+            <main className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
+
+                <div className="w-full max-w-md rounded-3xl border border-purple-100 bg-white p-8 text-center shadow-sm">
+
+                    <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-purple-50 text-4xl">
+                        🛍️
+                    </div>
+
+                    <h2 className="text-xl font-bold text-gray-900">
+                        Category Not Found
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                        This category is currently unavailable.
+                    </p>
+
+                    <Link
+                        href="/"
+                        className="mt-6 inline-flex rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+                    >
+                        Go to Home
+                    </Link>
+
+                </div>
+
+            </main>
+        )
+    }
+
+    // INVALID SUBCATEGORY
+    if (subcategorySlug !== 'all' && !selectedSubcategory) {
+
+        return (
+            <main className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
+
+                <div className="w-full max-w-md rounded-3xl border border-purple-100 bg-white p-8 text-center shadow-sm">
+
+                    <h2 className="text-xl font-bold text-gray-900">
+                        Subcategory Not Found
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                        This subcategory is not available in this collection.
+                    </p>
+
+                    <button
+                        onClick={() => handleSubcategoryChange('all')}
+                        className="mt-6 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+                    >
+                        View All Products
+                    </button>
+
+                </div>
+
+            </main>
+        )
+    }
+
+    return (
+
+        <main className="min-h-screen bg-[#faf8ff] px-3 py-6 sm:px-5 md:px-8 md:py-10">
+
+            <div className="mx-auto max-w-7xl">
+
+                {/* BREADCRUMB */}
+                <div className="mb-5 flex flex-wrap items-center gap-2 text-xs font-medium text-gray-500 sm:text-sm">
+
+                    <Link
+                        href="/"
+                        className="transition hover:text-purple-700"
+                    >
+                        Home
+                    </Link>
+
+                    <span>/</span>
+
+                    <span className="text-purple-700">
+                        {category.name}
+                    </span>
+
+                    {subcategorySlug !== 'all' && (
+                        <>
+                            <span>/</span>
+                            <span className="text-purple-700">
+                                {selectedSubcategory.name}
+                            </span>
+                        </>
+                    )}
+
+                </div>
+
+
+                {/* SUBCATEGORY FILTER */}
+                <section className="mb-9">
+
+                    <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+
+                        <div>
+
+                            <h2 className="text-lg font-bold text-gray-900 sm:text-xl">
+                                Shop by Subcategory
+                            </h2>
+
+                            <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+                                Explore different collections
+                            </p>
+
+                        </div>
+
+                        <span className="rounded-full bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-700">
+                            {subcategories.length} Collections
+                        </span>
+
+                    </div>
+
+                    <div className="flex gap-4 overflow-x-auto pb-4">
 
                         {/* ALL */}
                         <button
                             onClick={() => handleSubcategoryChange('all')}
-                            className="flex shrink-0 flex-col items-center"
+                            className="group flex w-24 shrink-0 flex-col items-center sm:w-28"
                         >
-                            <div
-                                className={`h-24 w-24 rounded-full border-2 p-1 transition ${
-                                    subcategorySlug === 'all'
-                                        ? 'border-purple-600 bg-purple-100'
-                                        : 'border-transparent bg-white'
-                                }`}
-                            >
-                                <div className="flex h-full items-center justify-center rounded-full bg-purple-100 text-3xl">
+
+                            <div className={`h-20 w-20 rounded-full border-[3px] p-1 transition sm:h-24 sm:w-24 ${subcategorySlug === 'all'
+                                    ? 'border-purple-600 bg-purple-100 shadow-lg shadow-purple-100'
+                                    : 'border-transparent bg-white shadow-sm group-hover:border-purple-200'
+                                }`}>
+
+                                <div className="flex h-full items-center justify-center rounded-full bg-purple-50 text-3xl transition group-hover:bg-purple-100">
                                     🛍️
                                 </div>
+
                             </div>
 
-                            <span className="mt-1 text-sm font-medium text-gray-700">
-                                All
+                            <span className={`mt-2 text-xs font-bold sm:text-sm ${subcategorySlug === 'all'
+                                    ? 'text-purple-700'
+                                    : 'text-gray-600'
+                                }`}>
+                                All Products
                             </span>
+
                         </button>
 
                         {/* SUBCATEGORIES */}
                         {subcategories.map(item => (
+
                             <button
                                 key={item._id}
                                 onClick={() => handleSubcategoryChange(item.slug)}
-                                className="flex shrink-0 flex-col items-center"
+                                className="group flex w-24 shrink-0 flex-col items-center sm:w-28"
                             >
-                                <div
-                                    className={`h-24 w-24 rounded-full border-2 p-1 transition ${
-                                        subcategorySlug === item.slug
-                                            ? 'border-purple-600 bg-purple-100'
-                                            : 'border-transparent bg-white'
-                                    }`}
-                                >
+
+                                <div className={`h-20 w-20 rounded-full border-[3px] p-1 transition sm:h-24 sm:w-24 ${subcategorySlug === item.slug
+                                        ? 'border-purple-600 bg-purple-100 shadow-lg shadow-purple-100'
+                                        : 'border-transparent bg-white shadow-sm group-hover:border-purple-200'
+                                    }`}>
+
                                     <img
                                         src={item.image || '/placeholder.png'}
                                         alt={item.name}
-                                        className="h-full w-full rounded-full object-cover"
+                                        loading="lazy"
+                                        className="h-full w-full rounded-full bg-purple-50 object-cover"
                                     />
+
                                 </div>
 
-                                <span className="mt-1 text-sm font-medium text-gray-700">
+                                <span className={`mt-2 line-clamp-2 text-center text-xs font-bold sm:text-sm ${subcategorySlug === item.slug
+                                        ? 'text-purple-700'
+                                        : 'text-gray-600'
+                                    }`}>
                                     {item.name}
                                 </span>
+
                             </button>
+
                         ))}
 
                     </div>
-                </div>
 
-                {/* PRODUCTS / VARIANTS */}
-                <section className="mt-8">
+                </section>
 
-                    <h2 className="mb-5 text-2xl font-bold text-gray-900">
-                        {subcategorySlug === 'all'
-                            ? `All ${category.name} Products`
-                            : `${selectedSubcategory.name} Products`}
-                    </h2>
+                {/* PRODUCTS SECTION */}
+                <section>
 
-                    {displayCards.length === 0 ? (
-                        <div className="rounded-xl bg-white p-8 text-center text-gray-600 shadow-sm">
-                            No products or variants available.
+                    <div className="mb-5">
+
+                        <h2 className="text-xl font-extrabold text-gray-900 sm:text-2xl">
+                            {subcategorySlug === 'all'
+                                ? `All ${category.name} Products`
+                                : `${selectedSubcategory.name} Products`}
+                        </h2>
+
+                        <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+                            Find your favourite products at great prices
+                        </p>
+
+                    </div>
+
+                    {/* SEARCH AND SORTING */}
+                    <div className="mb-6 rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+                            {/* SEARCH */}
+                            <div className="relative">
+
+                                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg text-purple-500">
+                                    ⌕
+                                </span>
+
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={e => handleSearch(e.target.value)}
+                                    placeholder="Search products, brands..."
+                                    autoComplete="off"
+                                    className="w-full rounded-xl border border-purple-100 bg-[#faf8ff] py-3 pl-10 pr-10 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-purple-500 focus:bg-white focus:ring-4 focus:ring-purple-50"
+                                />
+
+                                {search && (
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSearch('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-purple-100 hover:text-purple-700"
+                                    >
+                                        ✕
+                                    </button>
+
+                                )}
+
+                            </div>
+
+                            {/* SORTING */}
+                            <select
+                                value={`${sortBy}-${order}`}
+                                onChange={e => handleSort(e.target.value)}
+                                className="w-full cursor-pointer rounded-xl border border-purple-100 bg-[#faf8ff] px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-purple-500 focus:bg-white focus:ring-4 focus:ring-purple-50"
+                            >
+
+                                <option value="createdAt-desc">Newest First</option>
+                                <option value="createdAt-asc">Oldest First</option>
+                                <option value="name-asc">Name A-Z</option>
+                                <option value="name-desc">Name Z-A</option>
+                                <option value="price-asc">Price: Low to High</option>
+                                <option value="price-desc">Price: High to Low</option>
+
+                            </select>
+
                         </div>
+
+                    </div>
+
+                    {/* PRODUCT COUNT */}
+                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+
+                        <p className="text-xs text-gray-600 sm:text-sm">
+                            Showing <span className="font-bold text-gray-900">{displayCards.length}</span> products
+                            {pagination?.totalProducts !== undefined &&
+                                ` of ${pagination.totalProducts}`}
+                        </p>
+
+                        <span className="rounded-full border border-purple-100 bg-white px-4 py-2 text-xs font-semibold text-purple-700 shadow-sm sm:text-sm">
+                            Page {pagination?.currentPage || page} of {pagination?.totalPages || 1}
+                        </span>
+
+                    </div>
+
+                    {/* UPDATING INDICATOR */}
+                    {loading && (
+
+                        <div className="mb-5 flex items-center justify-center gap-2 rounded-xl bg-purple-50 py-3 text-sm font-medium text-purple-700">
+
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600"></span>
+
+                            Updating products...
+
+                        </div>
+
+                    )}
+
+                    {/* PRODUCT GRID */}
+                    {displayCards.length === 0 ? (
+
+                        <div className="rounded-3xl border border-purple-100 bg-white px-5 py-14 text-center shadow-sm sm:py-20">
+
+                            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-purple-50 text-4xl">
+                                🛒
+                            </div>
+
+                            <h3 className="text-lg font-bold text-gray-900 sm:text-xl">
+                                {search
+                                    ? `No products found for "${search}"`
+                                    : 'No Products Available'}
+                            </h3>
+
+                            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
+                                {search
+                                    ? 'Try searching with another product name or brand.'
+                                    : 'There are currently no products available in this collection.'}
+                            </p>
+
+                            {search && (
+
+                                <button
+                                    onClick={() => handleSearch('')}
+                                    className="mt-6 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+                                >
+                                    Clear Search
+                                </button>
+
+                            )}
+
+                        </div>
+
                     ) : (
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 lg:gap-5">
 
                             {displayCards.map(card => {
+
                                 const product = card.product
                                 const variant = card.variant
 
-                                // CART ITEM
                                 const cartItem = variant
                                     ? getCartItem(product._id, variant._id)
                                     : null
 
-                                // VARIANT IMAGE
                                 const image =
                                     variant?.images?.[0] ||
                                     product.image ||
                                     '/placeholder.png'
 
-                                // PRICE
                                 const sellingPrice = variant
                                     ? Number(variant.sellingPrice)
                                     : null
@@ -555,177 +978,312 @@ export default function CategoryPage() {
                                     : 0
 
                                 return (
+
                                     <div
                                         key={
                                             card.type === 'product'
                                                 ? product._id
                                                 : variant._id
                                         }
-                                        className="relative rounded-2xl border border-purple-100 bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                                        className="group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-purple-100 bg-white p-2.5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-100 sm:rounded-3xl sm:p-3.5"
                                     >
 
-                                        {/* WISHLIST */}
-                                        <button
-                                            onClick={() => handleWishlist(product._id)}
-                                            className="absolute right-3 top-3 z-10 rounded-full bg-white px-2 py-1 text-xl shadow"
-                                        >
-                                            {isInWishlist(product._id) ? '❤️' : '♡'}
-                                        </button>
+                                        {/* IMAGE */}
+                                        <div className="relative overflow-hidden rounded-xl bg-[#faf8ff] sm:rounded-2xl">
 
-                                        {/* DISCOUNT */}
-                                        {card.type === 'variant' && discount > 0 && (
-                                            <span className="absolute left-3 top-3 rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
-                                                {discount}% OFF
-                                            </span>
-                                        )}
+                                            <Link
+                                                href={`/product/${product.slug}`}
+                                                className="block"
+                                            >
 
-                                        {/* PRODUCT IMAGE AND NAME */}
-                                        <Link href={`/product/${product._id}`}>
-                                            <img
-                                                src={image}
-                                                alt={product.name}
-                                                className="h-36 w-full rounded-xl object-contain"
-                                            />
+                                                <img
+                                                    src={image}
+                                                    alt={product.name}
+                                                    loading="lazy"
+                                                    className="h-32 w-full object-contain p-2 transition duration-500 group-hover:scale-110 sm:h-40 md:h-44 lg:h-40"
+                                                />
 
-                                            <h3 className="mt-3 line-clamp-2 font-semibold text-gray-800">
-                                                {product.name}
-                                            </h3>
-                                        </Link>
+                                            </Link>
 
-                                        {/* ALL PRODUCTS VIEW */}
-                                        {card.type === 'product' && (
-                                            <>
-                                                {variant ? (
-                                                    <div className="mt-2">
-                                                        <p className="font-bold text-gray-900">
-                                                            Starting ₹{sellingPrice}
+                                            {/* WISHLIST */}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleWishlist(product._id)}
+                                                aria-label={
+                                                    isInWishlist(product._id)
+                                                        ? 'Remove from wishlist'
+                                                        : 'Add to wishlist'
+                                                }
+                                                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-purple-50 bg-white/95 text-xl shadow-sm backdrop-blur-sm transition hover:scale-110 hover:bg-pink-50 sm:h-9 sm:w-9"
+                                            >
+                                                {isInWishlist(product._id)
+                                                    ? <span className="text-pink-600">♥</span>
+                                                    : <span className="text-gray-500">♡</span>}
+                                            </button>
+
+                                            {/* DISCOUNT */}
+                                            {card.type === 'variant' && discount > 0 && (
+
+                                                <span className="absolute bottom-2 left-2 rounded-full bg-green-100 px-2 py-1 text-[9px] font-bold text-green-700 sm:text-[10px]">
+                                                    {discount}% OFF
+                                                </span>
+
+                                            )}
+
+                                        </div>
+
+                                        {/* PRODUCT DETAILS */}
+                                        <div className="flex flex-1 flex-col">
+
+                                            <Link href={`/product/${product.slug}`}>
+
+                                                <h3 className="mt-3 line-clamp-2 min-h-[40px] text-xs font-bold leading-5 text-gray-800 transition group-hover:text-purple-700 sm:text-sm">
+                                                    {product.name}
+                                                </h3>
+
+                                            </Link>
+
+                                            {/* ALL CATEGORY VIEW */}
+                                            {card.type === 'product' && (
+
+                                                <>
+
+                                                    {variant ? (
+
+                                                        <div className="mt-2">
+
+                                                            <p className="text-base font-extrabold text-purple-700 sm:text-lg">
+                                                                ₹{sellingPrice}
+                                                            </p>
+
+                                                            <p className="mt-1 text-xs text-gray-500">
+                                                                {variant.name}
+                                                            </p>
+
+                                                        </div>
+
+                                                    ) : (
+
+                                                        <p className="mt-2 text-xs font-medium text-gray-400">
+                                                            Currently unavailable
                                                         </p>
 
-                                                        <p className="mt-1 text-xs text-gray-500">
-                                                            {variant.name}
-                                                        </p>
+                                                    )}
+
+                                                    <div className="mt-auto pt-3">
+
+                                                        {!variant ? (
+
+                                                            <button
+                                                                disabled
+                                                                className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 py-2.5 text-[10px] font-bold text-gray-400 sm:text-xs"
+                                                            >
+                                                                OUT OF STOCK
+                                                            </button>
+
+                                                        ) : cartItem ? (
+
+                                                            <div className="flex items-center justify-between rounded-xl bg-purple-600 p-1 text-white">
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDecrease(cartItem)}
+                                                                    className="h-8 w-8 rounded-lg text-xl font-bold transition hover:bg-purple-700"
+                                                                >
+                                                                    −
+                                                                </button>
+
+                                                                <span className="text-sm font-bold">
+                                                                    {cartItem.quantity}
+                                                                </span>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleIncrease(cartItem)}
+                                                                    className="h-8 w-8 rounded-lg text-xl font-bold transition hover:bg-purple-700"
+                                                                >
+                                                                    +
+                                                                </button>
+
+                                                            </div>
+
+                                                        ) : (
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleAddToCart(product._id, variant._id)}
+                                                                className="w-full rounded-xl border border-purple-600 bg-white py-2.5 text-[10px] font-extrabold text-purple-700 transition hover:bg-purple-600 hover:text-white sm:text-xs"
+                                                            >
+                                                                ADD TO CART
+                                                            </button>
+
+                                                        )}
+
                                                     </div>
-                                                ) : (
-                                                    <p className="mt-2 text-sm text-gray-500">
-                                                        Currently unavailable
+
+                                                </>
+
+                                            )}
+
+                                            {/* SUBCATEGORY VARIANT VIEW */}
+                                            {card.type === 'variant' && (
+
+                                                <>
+
+                                                    <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                                                        {variant.name}
                                                     </p>
-                                                )}
 
-                                                {/* ADD TO CART */}
-                                                <div className="mt-3">
-                                                    {!variant ? (
-                                                        <button
-                                                            disabled
-                                                            className="w-full cursor-not-allowed rounded-lg bg-gray-300 py-2 text-sm font-semibold text-gray-500"
-                                                        >
-                                                            OUT OF STOCK
-                                                        </button>
-                                                    ) : cartItem ? (
-                                                        <div className="flex items-center justify-between rounded-lg bg-purple-600 px-3 py-2 text-white">
-                                                            <button
-                                                                onClick={() => handleDecrease(cartItem)}
-                                                            >
-                                                                −
-                                                            </button>
+                                                    <p className="mt-1 text-[10px] text-gray-400 sm:text-xs">
+                                                        {variant.unitValue} {variant.unit}
+                                                    </p>
 
-                                                            <span className="font-semibold">
-                                                                {cartItem.quantity}
-                                                            </span>
+                                                    <div className="mt-2 flex flex-wrap items-center gap-2">
 
-                                                            <button
-                                                                onClick={() => handleIncrease(cartItem)}
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() =>
-                                                                handleAddToCart(product._id, variant._id)
-                                                            }
-                                                            className="w-full rounded-lg border border-purple-600 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-600 hover:text-white"
-                                                        >
-                                                            ADD TO CART
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </>
-                                        )}
-
-                                        {/* SUBCATEGORY VARIANT VIEW */}
-                                        {card.type === 'variant' && (
-                                            <>
-                                                <p className="mt-1 text-sm text-gray-600">
-                                                    {variant.name}
-                                                </p>
-
-                                                <p className="text-xs text-gray-500">
-                                                    {variant.unitValue} {variant.unit}
-                                                </p>
-
-                                                {/* PRICE */}
-                                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                    <span className="font-bold text-gray-900">
-                                                        ₹{sellingPrice}
-                                                    </span>
-
-                                                    {mrp > sellingPrice && (
-                                                        <span className="text-sm text-gray-400 line-through">
-                                                            ₹{mrp}
+                                                        <span className="text-base font-extrabold text-purple-700 sm:text-lg">
+                                                            ₹{sellingPrice}
                                                         </span>
-                                                    )}
-                                                </div>
 
-                                                {/* CART */}
-                                                <div className="mt-3">
-                                                    {cartItem ? (
-                                                        <div className="flex items-center justify-between rounded-lg bg-purple-600 px-3 py-2 text-white">
-                                                            <button
-                                                                onClick={() => handleDecrease(cartItem)}
-                                                            >
-                                                                −
-                                                            </button>
+                                                        {mrp > sellingPrice && (
 
-                                                            <span className="font-semibold">
-                                                                {cartItem.quantity}
+                                                            <span className="text-xs text-gray-400 line-through sm:text-sm">
+                                                                ₹{mrp}
                                                             </span>
 
-                                                            <button
-                                                                onClick={() => handleIncrease(cartItem)}
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() =>
-                                                                handleAddToCart(product._id, variant._id)
-                                                            }
-                                                            className="w-full rounded-lg border border-purple-600 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-600 hover:text-white"
-                                                        >
-                                                            ADD TO CART
-                                                        </button>
-                                                    )}
+                                                        )}
 
-                                                    <button
-                                                        onClick={() => handleBuyNow(product, variant)}
-                                                        className="mt-2 w-full rounded-lg bg-purple-600 py-2 text-sm font-semibold text-white hover:bg-purple-700"
-                                                    >
-                                                        BUY NOW
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
+                                                    </div>
+
+                                                    <div className="mt-auto pt-3">
+
+                                                        {cartItem ? (
+
+                                                            <div className="flex items-center justify-between rounded-xl bg-purple-600 p-1 text-white">
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDecrease(cartItem)}
+                                                                    className="h-8 w-8 rounded-lg text-xl font-bold transition hover:bg-purple-700"
+                                                                >
+                                                                    −
+                                                                </button>
+
+                                                                <span className="text-sm font-bold">
+                                                                    {cartItem.quantity}
+                                                                </span>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleIncrease(cartItem)}
+                                                                    className="h-8 w-8 rounded-lg text-xl font-bold transition hover:bg-purple-700"
+                                                                >
+                                                                    +
+                                                                </button>
+
+                                                            </div>
+
+                                                        ) : (
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleAddToCart(product._id, variant._id)}
+                                                                className="w-full rounded-xl border border-purple-600 bg-white py-2.5 text-[10px] font-extrabold text-purple-700 transition hover:bg-purple-600 hover:text-white sm:text-xs"
+                                                            >
+                                                                ADD TO CART
+                                                            </button>
+
+                                                        )}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleBuyNow(product, variant)}
+                                                            className="mt-2 w-full rounded-xl bg-purple-600 py-2.5 text-[10px] font-extrabold text-white shadow-sm shadow-purple-200 transition hover:bg-purple-700 sm:text-xs"
+                                                        >
+                                                            BUY NOW
+                                                        </button>
+
+                                                    </div>
+
+                                                </>
+
+                                            )}
+
+                                        </div>
 
                                     </div>
+
                                 )
                             })}
 
                         </div>
+
+                    )}
+
+                    {/* PAGINATION */}
+                    {pagination && pagination.totalPages > 1 && (
+
+                        <div className="mt-10 flex flex-wrap items-center justify-center gap-2 sm:mt-12">
+
+                            <button
+                                type="button"
+                                disabled={!pagination.hasPrevPage || loading}
+                                onClick={() => changePage(page - 1)}
+                                className="rounded-xl border border-purple-200 bg-white px-3 py-2.5 text-xs font-bold text-purple-700 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5 sm:text-sm"
+                            >
+                                ← Previous
+                            </button>
+
+                            {Array.from(
+                                { length: pagination.totalPages },
+                                (_, index) => index + 1
+                            ).map(pageNumber => (
+
+                                <button
+                                    key={pageNumber}
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={() => changePage(pageNumber)}
+                                    className={`h-10 min-w-10 rounded-xl px-3 text-xs font-bold transition sm:text-sm ${page === pageNumber
+                                            ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
+                                            : 'border border-purple-200 bg-white text-purple-700 hover:border-purple-400 hover:bg-purple-50'
+                                        }`}
+                                >
+                                    {pageNumber}
+                                </button>
+
+                            ))}
+
+                            <button
+                                type="button"
+                                disabled={!pagination.hasNextPage || loading}
+                                onClick={() => changePage(page + 1)}
+                                className="rounded-xl border border-purple-200 bg-white px-3 py-2.5 text-xs font-bold text-purple-700 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5 sm:text-sm"
+                            >
+                                Next →
+                            </button>
+
+                        </div>
+
                     )}
 
                 </section>
+
+                {/* BOTTOM BRANDING */}
+                <div className="mt-12 border-t border-purple-100 pt-6 text-center">
+
+                    <p className="text-xs font-bold tracking-[3px] text-purple-600">
+                        SHOP • SELL • GROW
+                    </p>
+
+                    <p className="mt-2 text-xs text-gray-400">
+                        Discover more with Sellora
+                    </p>
+
+                </div>
+
             </div>
+
         </main>
+
     )
 }

@@ -6,7 +6,8 @@ const {
     createBrand,
     getAllBrands,
     updateBrand,
-    deleteBrand
+    deleteBrand,
+    updateBrandStatus
 } = require('../controllers/brandcontroller')
 
 const upload = require('../middleware/upload')
@@ -53,6 +54,13 @@ router.delete(
     adminAuth,
     checkPermission('brands_delete'),
     deleteBrand
+)
+
+router.put(
+    '/update-status/:id',
+    adminAuth,
+    checkPermission('brands_edit'),
+    updateBrandStatus
 )
 
 module.exports = router

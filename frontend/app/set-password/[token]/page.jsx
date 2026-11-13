@@ -34,12 +34,12 @@ export default function SetPassword() {
     e.preventDefault()
 
     if (newPassword.length < 8) {
-      toast.success('Password must be at least 8 characters')
+      toast.error('Password must be at least 8 characters')
       return
     }
 
     if (newPassword !== confirmPassword) {
-      toast.success('Passwords do not match')
+      toast.error('Passwords do not match')
       return
     }
 
@@ -55,7 +55,7 @@ export default function SetPassword() {
       router.push('/')
 
     } catch (error) {
-      toast.success(
+      toast.error(
         error.response?.data?.message || 'Unable to set password'
       )
     } finally {

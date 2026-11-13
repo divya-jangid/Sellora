@@ -140,6 +140,8 @@ const calculatedSellingPrice = Number(
 
 
 
+
+
 const getAllProductVariants = async (req, res) => {
     try {
         let productVariants;
@@ -170,32 +172,120 @@ const getAllProductVariants = async (req, res) => {
                     ]
                 });
 
-            // FILTER BY CATEGORY SLUG
             if (categorySlug) {
                 productVariants = productVariants.filter(variant =>
                     variant.product?.category?.slug === categorySlug
                 );
             }
 
-            // FILTER BY SUBCATEGORY SLUG
             if (subcategorySlug !== 'all') {
                 productVariants = productVariants.filter(variant =>
                     variant.product?.subCategory?.slug === subcategorySlug
                 );
             }
 
+            return res.status(200).json({
+                message: 'Product variants fetched successfully',
+                status: true,
+                data: productVariants
+            });
+
         } else {
 
-            // ADMIN API - GET ALL PRODUCT VARIANTS
-            productVariants = await ProductVariant.find()
-                .populate('product', 'name slug');
-        }
+            // ADMIN API - SEARCH, SORT AND PAGINATION
 
-        return res.status(200).json({
-            message: 'Product variants fetched successfully',
-            status: true,
-            data: productVariants
-        });
+            const {
+                page = 1,
+                limit = 10,
+                search = '',
+                sortBy = 'createdAt',
+                order = 'desc'
+            } = req.query;
+
+            const currentPage = Math.max(1, Number(page));
+            const pageLimit = Math.max(1, Number(limit));
+            const skip = (currentPage - 1) * pageLimit;
+
+            let filter = {};
+
+            // SEARCH BY VARIANT NAME, SKU, BARCODE
+            if (search) {
+                const products = await Product.find({
+                    name: {
+                        $regex: search,
+                        $options: 'i'
+                    }
+                }).select('_id');
+
+                filter.$or = [
+                    {
+                        name: {
+                            $regex: search,
+                            $options: 'i'
+                        }
+                    },
+                    {
+                        sku: {
+                            $regex: search,
+                            $options: 'i'
+                        }
+                    },
+                    {
+                        barcode: {
+                            $regex: search,
+                            $options: 'i'
+                        }
+                    },
+                    {
+                        product: {
+                            $in: products.map(item => item._id)
+                        }
+                    }
+                ];
+            }
+
+            // ALLOWED SORT FIELDS
+            const allowedSortFields = [
+                'createdAt',
+                'name',
+                'sku',
+                'mrp',
+                'sellingPrice',
+                'status'
+            ];
+
+            const sortField = allowedSortFields.includes(sortBy)
+                ? sortBy
+                : 'createdAt';
+
+            const sortOrder = order === 'asc' ? 1 : -1;
+
+            // TOTAL PRODUCT VARIANTS
+            const totalVariants = await ProductVariant.countDocuments(filter);
+
+            // GET PRODUCT VARIANTS
+            productVariants = await ProductVariant.find(filter)
+                .populate('product', 'name slug')
+                .sort({ [sortField]: sortOrder })
+                .skip(skip)
+                .limit(pageLimit);
+
+            const totalPages = Math.ceil(totalVariants / pageLimit);
+
+            return res.status(200).json({
+                message: 'Product variants fetched successfully',
+                status: true,
+                data: productVariants,
+                pagination: {
+                    totalVariants,
+                    totalPages,
+                    currentPage,
+                    limit: pageLimit,
+                    hasNextPage: currentPage < totalPages,
+                    hasPrevPage: currentPage > 1
+                }
+            });
+        }
 
     } catch (error) {
         return res.status(500).json({
@@ -204,6 +294,7 @@ const getAllProductVariants = async (req, res) => {
         });
     }
 };
+
 
 
 // UPDATE PRODUCT VARIANT
@@ -367,12 +458,47 @@ const deleteProductVariant = async (req, res) => {
             status: false
         });
     }
-};
+}
+
+// UPDATE PRODUCT VARIANT STATUS
+const updateProductVariantStatus = async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const productVariant = await ProductVariant.findById(id)
+
+        if (!productVariant) {
+            return res.status(404).json({
+                message: 'Product variant not found',
+                status: false
+            })
+        }
+
+        // Backend khud status toggle karega
+        productVariant.status =
+            productVariant.status === 'active' ? 'inactive' : 'active'
+
+        await productVariant.save()
+
+        return res.status(200).json({
+            message: 'Product variant status updated successfully',
+            status: true,
+            data: productVariant
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+            status: false
+        })
+    }
+}
 
 
 module.exports = {
     createProductVariant,
     getAllProductVariants,
     updateProductVariant,
-    deleteProductVariant
+    deleteProductVariant,
+    updateProductVariantStatus 
 };

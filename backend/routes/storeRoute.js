@@ -6,7 +6,9 @@ const {
     createStore,
     getAllStores,
     updateStore,
-    deleteStore
+    deleteStore,
+    updateStoreStatus,
+    getNearestStore
 } = require('../controllers/storecontroller');
 
 const adminAuth = require('../middleware/adminAuth');
@@ -38,6 +40,16 @@ router.delete(
     adminAuth,
     checkPermission('store_delete'),
     deleteStore
-);
+)
+
+router.put(
+    '/update-status/:id',
+    adminAuth,
+    checkPermission('store_edit'),
+    updateStoreStatus
+)
+
+// CUSTOMER - FIND NEAREST STORE
+router.post('/find-nearest', getNearestStore);
 
 module.exports = router;

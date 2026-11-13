@@ -5,6 +5,47 @@ const Product = require('../model/productmodel')
 const Store = require('../model/storemodel')
 const Coupon = require('../model/couponModel')
 const ProductVariant = require('../model/productvariant')
+const Inventory = require('../model/inventorymodel')
+
+// COMMON FUNCTION: GET USER CART
+const findUserCart = async (userId, storeId = null) => {
+    const query = { user: userId }
+
+    if (storeId) {
+        query.store = storeId
+    }
+
+    return await Cart.findOne(query).sort({ updatedAt: -1 })
+}
+
+// COMMON FUNCTION: CALCULATE CART TOTAL
+const calculateCartTotal = async (cart) => {
+    const items = await CartItem.find({
+        cart: cart._id
+    })
+
+    cart.subtotal = items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+    )
+
+    cart.deliveryFee =
+        items.length === 0 || cart.subtotal >= 999 ? 0 : 30
+
+    cart.totalAmount = Number(
+        (
+            cart.subtotal -
+            (cart.discount || 0) +
+            cart.deliveryFee +
+            (cart.tax || 0)
+        ).toFixed(2)
+    )
+
+    await cart.save()
+
+    return items
+}
+
 
 // ADD TO CART
 const addToCart = async (req, res) => {
@@ -12,14 +53,15 @@ const addToCart = async (req, res) => {
         const {
             productId,
             quantity = 1,
-            variantId = null
+            variantId = null,
+            storeId
         } = req.body
 
         const userId = req.user.id
 
-        if (!productId) {
+        if (!productId || !storeId) {
             return res.status(400).json({
-                message: 'Product ID is required',
+                message: 'Product ID and Store ID are required',
                 status: false
             })
         }
@@ -31,17 +73,20 @@ const addToCart = async (req, res) => {
             })
         }
 
+        // CHECK SELECTED STORE
         const store = await Store.findOne({
+            _id: storeId,
             status: 'active'
         })
 
         if (!store) {
             return res.status(404).json({
-                message: 'No active store found',
+                message: 'Selected store is not available',
                 status: false
             })
         }
 
+        // CHECK PRODUCT
         const product = await Product.findOne({
             _id: productId,
             status: 'active'
@@ -49,14 +94,14 @@ const addToCart = async (req, res) => {
 
         if (!product) {
             return res.status(404).json({
-                message: 'Product not found',
+                message: 'Product not found or inactive',
                 status: false
             })
         }
 
         let price = Number(product.price)
 
-        // CHECK SELECTED VARIANT
+        // CHECK VARIANT
         if (variantId) {
             const variant = await ProductVariant.findOne({
                 _id: variantId,
@@ -66,7 +111,7 @@ const addToCart = async (req, res) => {
 
             if (!variant) {
                 return res.status(404).json({
-                    message: 'Product variant not found',
+                    message: 'Product variant not found or inactive',
                     status: false
                 })
             }
@@ -81,29 +126,70 @@ const addToCart = async (req, res) => {
             })
         }
 
+        // CHECK STORE INVENTORY
+        const inventory = await Inventory.findOne({
+            store: storeId,
+            product: productId,
+            variant: variantId || null,
+            status: 'active'
+        })
+
+        if (!inventory) {
+            return res.status(404).json({
+                message: 'Product is not available in this store',
+                status: false
+            })
+        }
+
+        const availableStock = Number(
+            inventory.availableQuantity
+        )
+
+        if (availableStock <= 0) {
+            return res.status(400).json({
+                message: 'Product is out of stock',
+                status: false
+            })
+        }
+
+        // FIND OR CREATE CART FOR SELECTED STORE
         let cart = await Cart.findOne({
             user: userId,
-            store: store._id
+            store: storeId
         })
 
         if (!cart) {
             cart = await Cart.create({
                 user: userId,
-                store: store._id
+                store: storeId
             })
         }
 
-        // SAME PRODUCT + SAME VARIANT = SAME CART ITEM
-        // DIFFERENT VARIANT = DIFFERENT CART ITEM
+        // FIND SAME PRODUCT AND VARIANT
         let cartItem = await CartItem.findOne({
             cart: cart._id,
             product: productId,
             variant: variantId || null
         })
 
+        const existingQuantity = cartItem
+            ? Number(cartItem.quantity)
+            : 0
+
+        const newQuantity = existingQuantity + quantity
+
+        // CHECK TOTAL CART QUANTITY AGAINST AVAILABLE STOCK
+        if (newQuantity > availableStock) {
+            return res.status(400).json({
+                message: `Only ${availableStock} items are available in stock`,
+                status: false
+            })
+        }
+
         if (cartItem) {
-            cartItem.quantity += quantity
-            cartItem.totalPrice = cartItem.price * cartItem.quantity
+            cartItem.quantity = newQuantity
+            cartItem.price = price
+            cartItem.totalPrice = price * newQuantity
 
             await cartItem.save()
         } else {
@@ -117,31 +203,11 @@ const addToCart = async (req, res) => {
             })
         }
 
-        const items = await CartItem.find({
-            cart: cart._id
-        })
-
-        cart.subtotal = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-        )
-
         // CART CHANGE = REMOVE OLD COUPON
         cart.discount = 0
         cart.coupon = null
 
-        cart.deliveryFee =
-            cart.subtotal >= 999 ? 0 : 30
-
-        cart.totalAmount = Number(
-            (
-                cart.subtotal +
-                cart.deliveryFee +
-                (cart.tax || 0)
-            ).toFixed(2)
-        )
-
-        await cart.save()
+        await calculateCartTotal(cart)
 
         return res.status(200).json({
             message: 'Product added to cart successfully',
@@ -153,6 +219,8 @@ const addToCart = async (req, res) => {
         })
 
     } catch (error) {
+        console.log('ADD TO CART ERROR:', error)
+
         return res.status(500).json({
             message: error.message,
             status: false
@@ -165,16 +233,16 @@ const addToCart = async (req, res) => {
 const getCart = async (req, res) => {
     try {
         const userId = req.user.id
+        const { storeId } = req.query
 
-        const cart = await Cart.findOne({
-            user: userId
-        }).populate('store')
+        const cart = await findUserCart(userId, storeId)
 
         if (!cart) {
             return res.status(200).json({
                 message: 'Your cart is empty',
                 status: true,
                 data: {
+                    store: null,
                     items: [],
                     subtotal: 0,
                     discount: 0,
@@ -184,6 +252,9 @@ const getCart = async (req, res) => {
                 }
             })
         }
+
+        const populatedCart = await Cart.findById(cart._id)
+            .populate('store')
 
         const items = await CartItem.find({
             cart: cart._id
@@ -196,7 +267,7 @@ const getCart = async (req, res) => {
             status: true,
             data: {
                 cartId: cart._id,
-                store: cart.store,
+                store: populatedCart.store,
                 items,
                 subtotal: cart.subtotal,
                 discount: cart.discount,
@@ -207,6 +278,8 @@ const getCart = async (req, res) => {
         })
 
     } catch (error) {
+        console.log('GET CART ERROR:', error)
+
         return res.status(500).json({
             message: error.message,
             status: false
@@ -219,7 +292,7 @@ const getCart = async (req, res) => {
 const applyCoupon = async (req, res) => {
     try {
         const userId = req.user.id
-        const { code } = req.body
+        const { code, storeId } = req.body
 
         if (!code || !code.trim()) {
             return res.status(400).json({
@@ -228,9 +301,7 @@ const applyCoupon = async (req, res) => {
             })
         }
 
-        const cart = await Cart.findOne({
-            user: userId
-        })
+        const cart = await findUserCart(userId, storeId)
 
         if (!cart) {
             return res.status(404).json({
@@ -401,6 +472,8 @@ const applyCoupon = async (req, res) => {
         })
 
     } catch (error) {
+        console.log('APPLY COUPON ERROR:', error)
+
         return res.status(500).json({
             message: error.message,
             status: false
@@ -413,10 +486,9 @@ const applyCoupon = async (req, res) => {
 const removeCoupon = async (req, res) => {
     try {
         const userId = req.user.id
+        const { storeId } = req.body
 
-        const cart = await Cart.findOne({
-            user: userId
-        })
+        const cart = await findUserCart(userId, storeId)
 
         if (!cart) {
             return res.status(404).json({
@@ -425,30 +497,10 @@ const removeCoupon = async (req, res) => {
             })
         }
 
-        const items = await CartItem.find({
-            cart: cart._id
-        })
-
-        cart.subtotal = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-        )
-
         cart.discount = 0
         cart.coupon = null
 
-        cart.deliveryFee =
-            items.length === 0 || cart.subtotal >= 999 ? 0 : 30
-
-        cart.totalAmount = Number(
-            (
-                cart.subtotal +
-                cart.deliveryFee +
-                (cart.tax || 0)
-            ).toFixed(2)
-        )
-
-        await cart.save()
+        await calculateCartTotal(cart)
 
         return res.status(200).json({
             message: 'Coupon removed successfully',
@@ -463,6 +515,8 @@ const removeCoupon = async (req, res) => {
         })
 
     } catch (error) {
+        console.log('REMOVE COUPON ERROR:', error)
+
         return res.status(500).json({
             message: error.message,
             status: false

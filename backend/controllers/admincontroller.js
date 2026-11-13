@@ -211,4 +211,109 @@ const logout = async (req, res) => {
 };
 
 
-module.exports = { signup , login, logout }
+const getMyProfile = async (req, res) => {
+    try {
+        const admin = await User.findById(req.user._id)
+            .populate('role', 'name permissions')
+            .select('-password')
+
+        if (!admin) {
+            return res.status(404).json({
+                message: 'Admin not found',
+                status: false
+            })
+        }
+
+        return res.status(200).json({
+            message: 'Profile fetched successfully',
+            status: true,
+            data: admin
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+            status: false
+        })
+    }
+}
+
+const updateMyProfile = async (req, res) => {
+    try {
+        const { firstName, lastName, phone } = req.body
+
+        const admin = await User.findById(req.user._id)
+
+        if (!admin) {
+            return res.status(404).json({
+                message: 'Admin not found',
+                status: false
+            })
+        }
+
+        admin.firstName = firstName
+        admin.lastName = lastName
+        admin.phone = phone
+
+        await admin.save()
+
+        return res.status(200).json({
+            message: 'Profile updated successfully',
+            status: true
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+            status: false
+        })
+    }
+}
+
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body
+
+        const admin = await User.findById(req.user._id)
+
+        if (!admin) {
+            return res.status(404).json({
+                message: 'Admin not found',
+                status: false
+            })
+        }
+
+        // Check current password
+        const isMatch = await bcrypt.compare(
+            currentPassword,
+            admin.password
+        )
+
+        if (!isMatch) {
+            return res.status(400).json({
+                message: 'Current password is incorrect',
+                status: false
+            })
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+        admin.password = hashedPassword
+
+        await admin.save()
+
+        return res.status(200).json({
+            message: 'Password changed successfully',
+            status: true
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+            status: false
+        })
+    }
+}
+
+module.exports = { signup , login, logout, getMyProfile, updateMyProfile, changePassword }

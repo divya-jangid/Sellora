@@ -20,7 +20,6 @@ export default function MyOrders() {
                     { withCredentials: true }
                 )
 
-                // Backend response ke according orders
                 setOrders(res.data.data || res.data.orders || [])
 
             } catch (err) {
@@ -39,153 +38,187 @@ export default function MyOrders() {
     const badgeStyle = (status) => {
         const value = status?.toLowerCase()
 
-        if (['success', 'delivered'].includes(value)) {
-            return 'bg-green-100 text-green-700'
+        if (['success', 'delivered', 'paid'].includes(value)) {
+            return 'bg-green-50 text-green-700 border border-green-200'
         }
 
         if (['failed', 'cancelled'].includes(value)) {
-            return 'bg-red-100 text-red-700'
+            return 'bg-red-50 text-red-700 border border-red-200'
         }
 
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-amber-50 text-amber-700 border border-amber-200'
     }
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-purple-50">
-                <p className="font-medium text-purple-700">
-                    Loading orders...
-                </p>
+            <div className="flex min-h-screen items-center justify-center bg-[#faf8ff] px-4">
+                <div className="text-center">
+                    <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
+                    <p className="mt-4 text-sm font-medium text-purple-700">
+                        Loading your orders...
+                    </p>
+                </div>
             </div>
         )
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-purple-50 p-6 text-center text-red-600">
-                {error}
+            <div className="flex min-h-screen items-center justify-center bg-[#faf8ff] px-4">
+                <div className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-6 text-center shadow-sm">
+                    <p className="text-3xl">⚠️</p>
+                    <h2 className="mt-3 text-lg font-bold text-gray-800">
+                        Unable to Load Orders
+                    </h2>
+                    <p className="mt-2 text-sm text-red-600">
+                        {error}
+                    </p>
+                    <Link
+                        href="/"
+                        className="mt-5 inline-flex rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-700"
+                    >
+                        Back to Shopping
+                    </Link>
+                </div>
             </div>
         )
     }
 
     return (
-        <main className="min-h-screen bg-purple-50 px-4 py-8 sm:px-6">
+        <main className="min-h-screen bg-[#faf8ff] px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
 
-            <div className="mx-auto max-w-4xl">
+            <div className="mx-auto max-w-5xl">
 
-                {/* Header */}
-                <div className="mb-7 flex items-center justify-between">
+                {/* Page Header */}
+                <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
+                        <p className="text-xs font-bold uppercase tracking-[2px] text-purple-600">
+                            Sellora / Account
+                        </p>
+
+                        <h1 className="mt-2 text-2xl font-extrabold text-gray-900 sm:text-3xl">
                             My Orders
                         </h1>
 
-                        <p className="mt-1 text-sm text-gray-500">
-                            Track your recent purchases
+                        <p className="mt-1 text-sm text-gray-500 sm:text-base">
+                            Track and manage all your purchases
                         </p>
                     </div>
 
                     <Link
                         href="/"
-                        className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+                        className="inline-flex w-fit items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-purple-100 transition hover:-translate-y-0.5 hover:bg-purple-700"
                     >
-                        Shop More
+                        <span>←</span> Continue Shopping
                     </Link>
-
                 </div>
 
-                {/* No Orders */}
+                {/* Orders Count */}
+                {orders.length > 0 && (
+                    <div className="mb-5 flex items-center justify-between rounded-xl border border-purple-100 bg-white px-4 py-3 shadow-sm">
+                        <p className="text-sm font-semibold text-gray-700">
+                            Your Order History
+                        </p>
+
+                        <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+                            {orders.length} {orders.length === 1 ? 'Order' : 'Orders'}
+                        </span>
+                    </div>
+                )}
+
+                {/* Empty Orders */}
                 {orders.length === 0 ? (
+                    <div className="rounded-2xl border border-purple-100 bg-white px-5 py-14 text-center shadow-sm sm:px-10">
 
-                    <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-purple-50 text-4xl">
+                            🛍️
+                        </div>
 
-                        <p className="text-4xl">🛍️</p>
-
-                        <h2 className="mt-3 text-lg font-semibold text-gray-800">
-                            No orders yet
+                        <h2 className="mt-5 text-xl font-bold text-gray-900">
+                            No orders yet!
                         </h2>
 
-                        <p className="mt-1 text-sm text-gray-500">
-                            Your placed orders will appear here.
+                        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500">
+                            Looks like you haven't placed any orders yet. Explore our products and find something you love.
                         </p>
 
                         <Link
                             href="/"
-                            className="mt-4 inline-block font-semibold text-purple-700 hover:underline"
+                            className="mt-6 inline-flex items-center justify-center rounded-xl bg-purple-600 px-7 py-3 text-sm font-bold text-white shadow-md shadow-purple-100 transition hover:bg-purple-700"
                         >
                             Start Shopping →
                         </Link>
-
                     </div>
-
                 ) : (
 
-                    <div className="space-y-3">
+                    /* Orders List */
+                    <div className="space-y-5">
 
                         {orders.map((order) => {
 
                             const partner = order.deliveryPartner
+                            const deliveryStatus = order.delivery?.deliveryStatus
 
                             return (
-
                                 <div
                                     key={order._id}
-                                    className="rounded-xl border border-purple-100 bg-white p-4 shadow-sm transition hover:shadow-md sm:p-5"
+                                    className="overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm transition duration-300 hover:shadow-md"
                                 >
 
                                     {/* Order Header */}
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
 
                                         <div className="min-w-0">
-
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                                                 Order ID
                                             </p>
 
-                                            <h2 className="mt-1 break-all text-sm font-bold text-gray-800">
+                                            <h2 className="mt-1 break-all text-sm font-bold text-gray-900 sm:text-base">
                                                 {order.orderNumber || order._id}
                                             </h2>
 
                                             {order.createdAt && (
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                                                <p className="mt-1.5 text-xs text-gray-500">
+                                                    Ordered on {new Date(order.createdAt).toLocaleDateString('en-IN', {
                                                         day: 'numeric',
                                                         month: 'short',
                                                         year: 'numeric'
                                                     })}
                                                 </p>
                                             )}
-
                                         </div>
 
-                                        <span
-                                            className={`w-fit rounded-full px-3 py-1 text-xs font-semibold capitalize ${badgeStyle(order.orderStatus)}`}
-                                        >
-                                            {order.orderStatus || 'Processing'}
-                                        </span>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-xs font-medium text-gray-500">
+                                                Order Status:
+                                            </span>
 
+                                            <span className={`rounded-full px-3 py-1.5 text-xs font-bold capitalize ${badgeStyle(order.orderStatus)}`}>
+                                                {order.orderStatus || 'Processing'}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Order Information */}
-                                    <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-gray-100 pt-3">
+                                    <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-3 sm:gap-3 sm:p-5">
 
-                                        <div>
-                                            <p className="text-xs text-gray-500">
+                                        <div className="rounded-xl bg-purple-50/70 p-4">
+                                            <p className="text-xs font-medium text-gray-500">
                                                 Total Amount
                                             </p>
 
-                                            <p className="mt-1 text-lg font-bold text-purple-700">
+                                            <p className="mt-2 text-xl font-extrabold text-purple-700">
                                                 ₹{Number(order.totalAmount || 0).toLocaleString('en-IN')}
                                             </p>
                                         </div>
 
-                                        <div>
-                                            <p className="text-xs text-gray-500">
-                                                Payment
+                                        <div className="rounded-xl bg-gray-50 p-4">
+                                            <p className="text-xs font-medium text-gray-500">
+                                                Payment Method
                                             </p>
 
-                                            <p className="mt-1 text-sm font-medium text-gray-800">
+                                            <p className="mt-2 text-sm font-bold text-gray-800">
                                                 {order.paymentMethod === 'COD'
                                                     ? 'Cash on Delivery'
                                                     : order.paymentMethod === 'online'
@@ -194,45 +227,102 @@ export default function MyOrders() {
                                             </p>
                                         </div>
 
-                                        <div>
-                                            <p className="text-xs text-gray-500">
+                                        <div className="rounded-xl bg-gray-50 p-4">
+                                            <p className="text-xs font-medium text-gray-500">
                                                 Payment Status
                                             </p>
 
-                                            <span
-                                                className={`mt-1 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${badgeStyle(order.paymentStatus)}`}
-                                            >
+                                            <span className={`mt-2 inline-block rounded-full px-3 py-1.5 text-xs font-bold ${badgeStyle(order.paymentStatus)}`}>
                                                 {order.paymentStatus || 'PENDING'}
                                             </span>
                                         </div>
 
                                     </div>
 
-                                    {/* Delivery Partner Details */}
-                                    <div className="mt-4 rounded-xl border border-purple-100 bg-purple-50 p-4">
+                                    {/* Delivery Tracking */}
+                                    <div className="mx-4 mb-4 rounded-xl border border-purple-100 bg-purple-50/60 p-4 sm:mx-5 sm:p-5">
 
-                                        <h3 className="mb-3 font-semibold text-gray-800">
-                                            🚚 Delivery Partner
-                                        </h3>
+                                        <div className="mb-4 flex items-center gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
+                                                🚚
+                                            </div>
+
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 sm:text-base">
+                                                    Delivery Tracking
+                                                </h3>
+
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    Latest delivery information
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {deliveryStatus ? (
+                                            <div className="rounded-lg bg-white p-3">
+                                                <p className="text-xs font-medium text-gray-500">
+                                                    Current Delivery Status
+                                                </p>
+
+                                                <span className={`mt-2 inline-block rounded-full px-3 py-1.5 text-xs font-bold capitalize ${badgeStyle(deliveryStatus)}`}>
+                                                    {deliveryStatus.replaceAll('_', ' ')}
+                                                </span>
+
+                                                {deliveryStatus === 'DELIVERED' && (
+                                                    <p className="mt-3 text-sm font-medium text-green-700">
+                                                        ✓ Your order has been delivered successfully.
+                                                    </p>
+                                                )}
+
+                                                {deliveryStatus === 'CANCELLED' && (
+                                                    <p className="mt-3 text-sm text-red-600">
+                                                        Delivery cancelled. A new delivery partner may be assigned.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="rounded-lg bg-white p-3 text-sm text-gray-600">
+                                                Delivery partner has not been assigned yet.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Delivery Partner */}
+                                    <div className="mx-4 mb-4 rounded-xl border border-gray-100 p-4 sm:mx-5 sm:p-5">
+
+                                        <div className="mb-4 flex items-center gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-xl">
+                                                👤
+                                            </div>
+
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 sm:text-base">
+                                                    Delivery Partner
+                                                </h3>
+
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    Your order delivery contact
+                                                </p>
+                                            </div>
+                                        </div>
 
                                         {partner ? (
+                                            <div className="flex flex-col gap-4 rounded-xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
 
-                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-                                                <div>
+                                                <div className="min-w-0">
                                                     <p className="text-xs text-gray-500">
                                                         Partner Name
                                                     </p>
 
-                                                    <p className="mt-1 font-semibold text-gray-900">
+                                                    <p className="mt-1 break-words font-bold text-gray-900">
                                                         {partner.name}
                                                     </p>
 
-                                                    <p className="mt-2 text-xs text-gray-500">
+                                                    <p className="mt-3 text-xs text-gray-500">
                                                         Phone Number
                                                     </p>
 
-                                                    <p className="mt-1 font-medium text-gray-800">
+                                                    <p className="mt-1 font-semibold text-gray-800">
                                                         {partner.phone || 'Not available'}
                                                     </p>
                                                 </div>
@@ -240,86 +330,47 @@ export default function MyOrders() {
                                                 {partner.phone && (
                                                     <a
                                                         href={`tel:${partner.phone}`}
-                                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
+                                                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-green-700 sm:w-auto"
                                                     >
-                                                        📞 Call Partner
+                                                        <span>📞</span>
+                                                        Call Partner
                                                     </a>
                                                 )}
-
                                             </div>
-
                                         ) : (
-
-                                            <p className="text-sm text-gray-600">
+                                            <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
                                                 Delivery partner has not been assigned yet.
                                             </p>
-
-                                        )}
-
-                                    </div>
-
-                                    {/* Delivery Partner Details */}
-                                    <div className="mt-4 rounded-lg border border-purple-100 bg-purple-50 p-4">
-                                        <h3 className="font-semibold text-gray-800">
-                                            Delivery Partner Details
-                                        </h3>
-
-                                        {order.deliveryPartner ? (
-                                            <>
-                                                <p className="mt-2 text-sm text-gray-700">
-                                                    Name: {order.deliveryPartner.name}
-                                                </p>
-
-                                                <p className="mt-1 text-sm text-gray-700">
-                                                    Phone: {order.deliveryPartner.phone || 'Not available'}
-                                                </p>
-
-                                                {order.deliveryPartner.phone && (
-                                                    <a
-                                                        href={`tel:${order.deliveryPartner.phone}`}
-                                                        className="mt-3 inline-block rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white"
-                                                    >
-                                                        Call Delivery Partner
-                                                    </a>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <p className="mt-2 text-sm text-gray-500">
-                                                Delivery partner not assigned yet.
-                                            </p>
                                         )}
                                     </div>
 
-                                    {/* View Details Button */}
-                                    <div className="mt-4 flex justify-end border-t border-gray-100 pt-4">
+                                    {/* Action Buttons */}
+                                    <div className="flex flex-col gap-3 border-t border-gray-100 p-4 sm:flex-row sm:justify-end sm:px-5 sm:py-4">
 
                                         <Link
                                             href={`/order-details/${order._id}`}
-                                            className="rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700"
+                                            className="inline-flex w-full items-center justify-center rounded-xl border border-purple-200 bg-white px-5 py-3 text-sm font-bold text-purple-700 transition hover:bg-purple-50 sm:w-auto"
                                         >
                                             View Details →
                                         </Link>
 
+                                        <Link
+                                            href={`/track-order/${order._id}`}
+                                            className="inline-flex w-full items-center justify-center rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-purple-700 sm:w-auto"
+                                        >
+                                            Track Order
+                                        </Link>
+
                                     </div>
 
-                                    <Link
-                                        href={`/track-order/${order._id}`}
-                                        className="mt-3 inline-block rounded-lg bg-purple-600 px-4 py-2 text-sm text-white"
-                                    >
-                                        Track Order
-                                    </Link>
-
                                 </div>
-
                             )
                         })}
 
                     </div>
-
                 )}
 
             </div>
-
         </main>
     )
 }

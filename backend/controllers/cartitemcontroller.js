@@ -1,6 +1,7 @@
 
 const CartItem = require('../model/cartitemModel')
 const Cart = require('../model/cartmodel')
+const Inventory = require('../model/inventorymodel')
 
 // UPDATE CART ITEM QUANTITY
 const updateCartItem = async (req, res) => {
@@ -25,6 +26,7 @@ const updateCartItem = async (req, res) => {
             })
         }
 
+        // CHECK CART OWNERSHIP
         const cart = await Cart.findOne({
             _id: cartItem.cart,
             user: userId
@@ -37,15 +39,40 @@ const updateCartItem = async (req, res) => {
             })
         }
 
+        // CHECK SELECTED STORE INVENTORY
+        const inventory = await Inventory.findOne({
+            store: cart.store,
+            product: cartItem.product,
+            variant: cartItem.variant || null,
+            status: 'active'
+        })
+
+        if (!inventory || inventory.availableQuantity <= 0) {
+            return res.status(400).json({
+                message: 'Product is out of stock',
+                status: false
+            })
+        }
+
+        // CHECK AVAILABLE QUANTITY
+        if (quantity > inventory.availableQuantity) {
+            return res.status(400).json({
+                message: `Only ${inventory.availableQuantity} items available`,
+                status: false
+            })
+        }
+
         cartItem.quantity = quantity
         cartItem.totalPrice = cartItem.price * quantity
 
         await cartItem.save()
 
+        // FETCH CART ITEMS
         const items = await CartItem.find({
             cart: cart._id
         })
 
+        // RECALCULATE CART TOTAL
         cart.subtotal = items.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
@@ -56,7 +83,7 @@ const updateCartItem = async (req, res) => {
         cart.coupon = null
 
         cart.deliveryFee =
-            cart.subtotal >= 999 ? 0 : 30
+            items.length === 0 || cart.subtotal >= 999 ? 0 : 30
 
         cart.totalAmount = Number(
             (
@@ -121,16 +148,18 @@ const removeCartItem = async (req, res) => {
 
         await CartItem.findByIdAndDelete(cartItemId)
 
+        // FETCH REMAINING ITEMS
         const cartItems = await CartItem.find({
             cart: cart._id
         })
 
+        // RECALCULATE CART TOTAL
         cart.subtotal = cartItems.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
         )
 
-        // REMOVE OLD COUPON AFTER CART CHANGE
+        // REMOVE OLD COUPON
         cart.discount = 0
         cart.coupon = null
 

@@ -6,11 +6,17 @@ import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/context/CartContext'
+import { useLocationContext } from '@/context/LocationContext'
 
 export default function ProductDetailPage() {
     const params = useParams()
     const productSlug = params?.productId
+
+    console.log('PRODUCT SLUG:', productSlug)
     const router = useRouter()
+
+    const { selectedStore } = useLocationContext()
+    const storeId = selectedStore?._id
 
     const [product, setProduct] = useState(null)
     const [variants, setVariants] = useState([])
@@ -31,67 +37,70 @@ export default function ProductDetailPage() {
         removeFromWishlist
     } = useCart()
 
+    // GET PRODUCT ACCORDING TO SELECTED STORE
     useEffect(() => {
         let isMounted = true
 
+        console.log('CURRENT URL:', window.location.pathname)
+        console.log('PARAMS:', params)
+
         const getProduct = async () => {
             try {
+                if (!storeId || !productSlug) return
+
                 setLoading(true)
                 setProduct(null)
                 setVariants([])
                 setSelectedVariant(null)
 
-                if (!productSlug) return
+                const isMongoId = /^[0-9a-fA-F]{24}$/.test(
+                    String(productSlug)
+                )
 
-                const isMongoId = /^[0-9a-fA-F]{24}$/.test(productSlug)
+                const params = {
+                    storeId,
+                    ...(isMongoId
+                        ? { productId: productSlug }
+                        : { productSlug })
+                }
 
                 const res = await axios.get(
                     'http://localhost:8000/product/public',
-                    {
-                        params: isMongoId
-                            ? { productId: productSlug }
-                            : { productSlug }
-                    }
+                    { params }
                 )
 
                 let selectedProduct = res.data?.data
 
                 if (Array.isArray(selectedProduct)) {
-                    selectedProduct = selectedProduct[0]
+                    selectedProduct = selectedProduct.find(
+                        (item) =>
+                            String(item._id) === String(productSlug) ||
+                            item.slug === productSlug
+                    )
                 }
 
                 if (!selectedProduct?._id) {
-                    if (isMounted) setProduct(null)
+                    if (isMounted) {
+                        setProduct(null)
+                        setVariants([])
+                    }
                     return
                 }
 
-                if (isMongoId && selectedProduct.slug) {
-                    router.replace(`/product/${selectedProduct.slug}`)
-                    return
-                }
+                // Only active variants with available stock
+                const availableVariants = (
+                    selectedProduct.variants || []
+                ).filter((variant) =>
+                    variant.status === 'active' &&
+                    Number(variant.availableQuantity) > 0
+                )
 
                 if (isMounted) {
                     setProduct(selectedProduct)
-                }
+                    setVariants(availableVariants)
 
-                const variantRes = await axios.get(
-                    'http://localhost:8000/productvariant/public',
-                    {
-                        params: {
-                            productId: selectedProduct._id
-                        }
-                    }
-                )
-
-                const productVariants = Array.isArray(variantRes.data?.data)
-                    ? variantRes.data.data
-                    : []
-
-                if (isMounted) {
-                    setVariants(productVariants)
-
-                    if (productVariants.length > 0) {
-                        setSelectedVariant(productVariants[0])
+                    if (availableVariants.length > 0) {
+                        setSelectedVariant(availableVariants[0])
                     }
                 }
 
@@ -103,6 +112,8 @@ export default function ProductDetailPage() {
 
                 if (isMounted) {
                     setProduct(null)
+                    setVariants([])
+                    setSelectedVariant(null)
                 }
             } finally {
                 if (isMounted) {
@@ -116,7 +127,10 @@ export default function ProductDetailPage() {
         return () => {
             isMounted = false
         }
-    }, [productSlug, router])
+    }, [productSlug, storeId])
+
+    // CHECK WHETHER PRODUCT HAS VARIANTS
+    const hasVariants = Boolean(product?.variants?.length)
 
     // FIND CART ITEM
     const cartItem = cartItems.find((item) => {
@@ -139,6 +153,13 @@ export default function ProductDetailPage() {
 
     const quantity = Number(cartItem?.quantity || 0)
 
+    // CURRENT AVAILABLE STOCK FROM STORE INVENTORY
+    const currentStock = Number(
+        selectedVariant?.availableQuantity ??
+        product?.availableQuantity ??
+        0
+    )
+
     // FIND WISHLIST ITEM
     const wishlistItem = wishlistItems.find((item) => {
         const id =
@@ -153,6 +174,8 @@ export default function ProductDetailPage() {
 
     // ADD / REMOVE WISHLIST
     const toggleWishlist = async () => {
+        if (!product?._id) return
+
         try {
             setWishlistLoading(true)
 
@@ -188,6 +211,16 @@ export default function ProductDetailPage() {
 
     // ADD TO CART
     const handleAddToCart = async () => {
+        if (currentStock <= 0) {
+            toast.error('Product is out of stock!')
+            return
+        }
+
+        if (hasVariants && !selectedVariant) {
+            toast.error('Please select an available variant!')
+            return
+        }
+
         try {
             setAdding(true)
 
@@ -223,13 +256,13 @@ export default function ProductDetailPage() {
 
     // BUY NOW - DOES NOT ADD PRODUCT TO CART
     const handleBuyNow = () => {
-        if (product.stock <= 0) {
+        if (currentStock <= 0) {
             toast.error('Product is out of stock!')
             return
         }
 
-        if (variants.length > 0 && !selectedVariant) {
-            toast.error('Please select a variant!')
+        if (hasVariants && !selectedVariant) {
+            toast.error('Please select an available variant!')
             return
         }
 
@@ -237,18 +270,23 @@ export default function ProductDetailPage() {
             productId: product._id,
             variantId: selectedVariant?._id || null,
             quantity: 1,
+
             product: {
                 _id: product._id,
                 name: product.name,
                 price: product.price,
                 image: product.image,
-                stock: product.stock
+                availableQuantity: currentStock
             },
+
             variant: selectedVariant
                 ? {
                     _id: selectedVariant._id,
                     name: selectedVariant.name,
-                    sellingPrice: selectedVariant.sellingPrice
+                    sellingPrice: selectedVariant.sellingPrice,
+                    mrp: selectedVariant.mrp,
+                    availableQuantity: currentStock,
+                    images: selectedVariant.images
                 }
                 : null
         }
@@ -264,6 +302,11 @@ export default function ProductDetailPage() {
     // UPDATE CART QUANTITY
     const updateQuantity = async (newQuantity) => {
         if (!cartItem?._id) return
+
+        if (newQuantity > currentStock) {
+            toast.error('Available stock limit reached!')
+            return
+        }
 
         try {
             setUpdating(true)
@@ -291,26 +334,63 @@ export default function ProductDetailPage() {
         }
     }
 
-    if (loading) {
+    // LOCATION NOT SELECTED
+    if (!storeId) {
         return (
-            <p className="p-8 text-center">
-                Loading product...
-            </p>
+            <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
+                <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+                    <div className="mb-4 text-5xl">📍</div>
+                    <p className="text-lg font-bold text-gray-800">
+                        Please select your location first.
+                    </p>
+                </div>
+            </div>
         )
     }
 
+    // LOADING
+    if (loading) {
+        return (
+            <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff]">
+                <div className="text-center">
+                    <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
+                    <p className="font-medium text-gray-500">
+                        Loading product...
+                    </p>
+                </div>
+            </div>
+        )
+    }
+
+    // PRODUCT NOT FOUND
     if (!product) {
         return (
-            <div className="p-8 text-center">
-                <p className="text-lg font-semibold">
-                    Product not found.
-                </p>
+            <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8ff] px-4">
+                <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-sm">
+                    <div className="mb-4 text-5xl">🛍️</div>
+
+                    <h2 className="text-xl font-bold text-gray-800">
+                        Product not found
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                        This product is not available in your selected store.
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() => router.push('/')}
+                        className="mt-6 rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white transition hover:bg-purple-700"
+                    >
+                        Continue Shopping
+                    </button>
+                </div>
             </div>
         )
     }
 
     const currentPrice = Number(
-        selectedVariant?.sellingPrice ?? product.price
+        selectedVariant?.sellingPrice ?? product.price ?? 0
     )
 
     const currentMrp = Number(
@@ -329,193 +409,309 @@ export default function ProductDetailPage() {
             : 0
 
     return (
-        <main className="min-h-screen bg-purple-50 px-4 py-8 sm:px-8">
-            <div className="mx-auto max-w-6xl">
-                <div className="grid gap-8 rounded-3xl bg-white p-5 shadow-sm sm:p-8 md:grid-cols-2">
+        <main className="min-h-screen bg-[#faf8ff] px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+            <div className="mx-auto max-w-7xl">
 
-                    {/* PRODUCT IMAGE */}
-                    <div className="relative flex min-h-72 items-center justify-center rounded-2xl bg-purple-50 p-5">
-                        {currentImage ? (
-                            <img
-                                src={currentImage}
-                                alt={product.name}
-                                className="max-h-96 w-full object-contain"
-                            />
-                        ) : (
-                            <p className="text-gray-400">
-                                No image available
-                            </p>
-                        )}
+                {/* BREADCRUMB */}
+                <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                    <button
+                        onClick={() => router.push('/')}
+                        className="transition hover:text-purple-700"
+                    >
+                        Home
+                    </button>
+                    <span>/</span>
+                    <span className="font-medium text-purple-700">
+                        Product Details
+                    </span>
+                </div>
 
-                        <button
-                            type="button"
-                            onClick={toggleWishlist}
-                            disabled={wishlistLoading}
-                            aria-label={
-                                isWishlisted
-                                    ? 'Remove from wishlist'
-                                    : 'Add to wishlist'
-                            }
-                            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-3xl shadow-md transition hover:scale-110 disabled:opacity-50"
-                        >
-                            <span className={
-                                isWishlisted
-                                    ? 'text-pink-600'
-                                    : 'text-gray-500'
-                            }>
-                                {isWishlisted ? '♥' : '♡'}
+                {/* PRODUCT MAIN SECTION */}
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-10">
+
+                    {/* LEFT - PRODUCT IMAGE */}
+                    <div className="relative overflow-hidden rounded-3xl border border-purple-100 bg-white p-4 shadow-sm sm:p-7">
+
+                        <div className="relative flex min-h-[300px] items-center justify-center overflow-hidden rounded-2xl bg-[#f8f5ff] p-5 sm:min-h-[430px] sm:p-8">
+
+                            {currentImage ? (
+                                <img
+                                    src={currentImage}
+                                    alt={product.name}
+                                    className="max-h-[380px] w-full object-contain transition duration-500 hover:scale-105"
+                                />
+                            ) : (
+                                <p className="text-gray-400">
+                                    No image available
+                                </p>
+                            )}
+
+                            {/* WISHLIST BUTTON */}
+                            <button
+                                type="button"
+                                onClick={toggleWishlist}
+                                disabled={wishlistLoading}
+                                aria-label={
+                                    isWishlisted
+                                        ? 'Remove from wishlist'
+                                        : 'Add to wishlist'
+                                }
+                                className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-white text-3xl shadow-md transition hover:scale-110 disabled:opacity-50"
+                            >
+                                <span className={
+                                    isWishlisted
+                                        ? 'text-pink-600'
+                                        : 'text-gray-500'
+                                }>
+                                    {isWishlisted ? '♥' : '♡'}
+                                </span>
+                            </button>
+
+                            {/* DISCOUNT BADGE */}
+                            {discountPercentage > 0 && (
+                                <span className="absolute left-4 top-4 rounded-full bg-green-600 px-4 py-2 text-xs font-bold text-white shadow-sm">
+                                    {discountPercentage}% OFF
+                                </span>
+                            )}
+                        </div>
+
+                        {/* IMAGE FOOTER */}
+                        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500 sm:gap-6 sm:text-sm">
+                            <span className="flex items-center gap-2">
+                                <span className="text-lg text-green-600">✓</span>
+                                Quality Products
                             </span>
-                        </button>
+
+                            <span className="flex items-center gap-2">
+                                <span className="text-lg text-green-600">✓</span>
+                                Secure Shopping
+                            </span>
+                        </div>
                     </div>
 
-                    {/* PRODUCT DETAILS */}
-                    <div className="flex flex-col justify-center">
-                        <p className="mb-3 text-sm font-semibold text-purple-600">
-                            SELLORA • PRODUCT DETAILS
-                        </p>
+                    {/* RIGHT - PRODUCT DETAILS */}
+                    <div className="flex flex-col rounded-3xl border border-purple-100 bg-white p-5 shadow-sm sm:p-8 lg:p-9">
 
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            {product.name}
-                        </h1>
+                        <div className="mb-5">
+                            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-purple-600">
+                                SELLORA • PRODUCT DETAILS
+                            </p>
+
+                            <h1 className="text-2xl font-bold leading-tight text-gray-900 sm:text-3xl lg:text-4xl">
+                                {product.name}
+                            </h1>
+                        </div>
 
                         {/* PRICE */}
-                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                            <p className="text-3xl font-bold text-purple-800">
+                        <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 pb-6">
+                            <span className="text-3xl font-extrabold text-purple-800 sm:text-4xl">
                                 ₹{currentPrice}
-                            </p>
+                            </span>
 
                             {currentMrp > currentPrice && (
                                 <>
-                                    <p className="text-lg text-gray-400 line-through">
+                                    <span className="text-lg text-gray-400 line-through">
                                         ₹{currentMrp}
-                                    </p>
+                                    </span>
 
-                                    <span className="rounded-lg bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-                                        {discountPercentage}% OFF
+                                    <span className="rounded-lg bg-green-50 px-3 py-1.5 text-sm font-bold text-green-700">
+                                        Save {discountPercentage}%
                                     </span>
                                 </>
                             )}
                         </div>
 
                         {/* VARIANTS */}
-                        {variants.length > 0 && (
-                            <div className="mt-6">
-                                <h2 className="mb-3 font-semibold text-gray-800">
+                        {hasVariants && (
+                            <div className="border-b border-gray-100 py-6">
+                                <h2 className="mb-4 text-base font-bold text-gray-900">
                                     Select Variant
                                 </h2>
 
-                                <div className="flex flex-wrap gap-3">
-                                    {variants.map((variant) => (
-                                        <button
-                                            key={variant._id}
-                                            type="button"
-                                            onClick={() => setSelectedVariant(variant)}
-                                            className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                                                selectedVariant?._id === variant._id
-                                                    ? 'border-purple-600 bg-purple-100 text-purple-700'
-                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-purple-400'
-                                            }`}
-                                        >
-                                            {variant.name}
-                                        </button>
-                                    ))}
-                                </div>
+                                {variants.length > 0 ? (
+                                    <div className="flex flex-wrap gap-3">
+                                        {variants.map((variant) => (
+                                            <button
+                                                key={variant._id}
+                                                type="button"
+                                                onClick={() => setSelectedVariant(variant)}
+                                                className={`rounded-xl border px-5 py-3 text-sm font-semibold transition ${selectedVariant?._id === variant._id
+                                                        ? 'border-purple-600 bg-purple-50 text-purple-700 ring-2 ring-purple-100'
+                                                        : 'border-gray-200 bg-white text-gray-700 hover:border-purple-400'
+                                                    }`}
+                                            >
+                                                {variant.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
+                                        All variants are currently out of stock.
+                                    </p>
+                                )}
                             </div>
                         )}
 
                         {/* DESCRIPTION */}
-                        <div className="mt-5">
-                            <h2 className="font-semibold text-gray-800">
+                        <div className="py-6">
+                            <h2 className="mb-3 text-base font-bold text-gray-900">
                                 Product Description
                             </h2>
 
-                            <p className="mt-2 leading-7 text-gray-600">
+                            <p className="text-sm leading-7 text-gray-600 sm:text-base">
                                 {product.description || 'No description available.'}
                             </p>
                         </div>
 
-                        {/* AVAILABILITY */}
-                        <p className="mt-5 text-sm text-gray-600">
-                            Availability:{' '}
-                            <span className={
-                                product.stock > 0
-                                    ? 'font-semibold text-green-600'
-                                    : 'font-semibold text-red-600'
-                            }>
-                                {product.stock > 0
+                        {/* STOCK STATUS */}
+                        <div className="mb-6 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
+                            <span className={`h-2.5 w-2.5 rounded-full ${currentStock > 0
+                                    ? 'bg-green-500'
+                                    : 'bg-red-500'
+                                }`}></span>
+
+                            <span className="text-sm font-medium text-gray-700">
+                                Availability:
+                            </span>
+
+                            <span className={`text-sm font-bold ${currentStock > 0
+                                    ? 'text-green-600'
+                                    : 'text-red-600'
+                                }`}>
+                                {currentStock > 0
                                     ? 'In Stock'
                                     : 'Out of Stock'}
                             </span>
-                        </p>
+                        </div>
 
-                        {/* CART AND BUY NOW BUTTONS */}
-                        <div className="mt-7 flex flex-wrap items-center gap-3">
-                            {quantity === 0 ? (
+                        {/* CART AND BUY NOW */}
+                        <div className="mt-auto space-y-3">
+
+                            {!cartItem ? (
                                 <button
                                     type="button"
                                     onClick={handleAddToCart}
                                     disabled={
                                         adding ||
-                                        product.stock <= 0 ||
-                                        (variants.length > 0 && !selectedVariant)
+                                        currentStock <= 0 ||
+                                        (hasVariants && !selectedVariant)
                                     }
-                                    className="rounded-xl bg-purple-600 px-6 py-3 font-bold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 px-6 py-3.5 text-base font-bold text-white shadow-md shadow-purple-100 transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    {adding
-                                        ? 'Adding...'
-                                        : product.stock <= 0
-                                            ? 'Out of Stock'
-                                            : 'Add to Cart'}
+                                    {adding ? (
+                                        <>
+                                            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                                            Adding...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-xl">+</span>
+                                            {currentStock <= 0
+                                                ? 'Out of Stock'
+                                                : 'Add to Cart'}
+                                        </>
+                                    )}
                                 </button>
                             ) : (
-                                <div className="flex w-fit items-center gap-5 rounded-xl bg-purple-600 p-2 text-white">
+                                <div className="flex w-full items-center justify-between rounded-xl bg-purple-600 p-2 text-white">
                                     <button
                                         type="button"
                                         disabled={updating}
                                         onClick={() => updateQuantity(quantity - 1)}
-                                        className="h-10 w-10 rounded-lg text-2xl font-bold hover:bg-purple-700 disabled:opacity-50"
+                                        className="flex h-11 w-12 items-center justify-center rounded-lg text-2xl font-bold transition hover:bg-purple-700 disabled:opacity-50"
                                     >
                                         −
                                     </button>
 
-                                    <span className="min-w-6 text-center font-bold">
+                                    <span className="font-bold">
                                         {updating ? '...' : quantity}
                                     </span>
 
                                     <button
                                         type="button"
-                                        disabled={updating}
+                                        disabled={
+                                            updating ||
+                                            quantity >= currentStock
+                                        }
                                         onClick={() => updateQuantity(quantity + 1)}
-                                        className="h-10 w-10 rounded-lg text-2xl font-bold hover:bg-purple-700 disabled:opacity-50"
+                                        className="flex h-11 w-12 items-center justify-center rounded-lg text-2xl font-bold transition hover:bg-purple-700 disabled:opacity-50"
                                     >
                                         +
                                     </button>
                                 </div>
                             )}
 
-                            {/* BUY NOW */}
                             <button
                                 type="button"
                                 onClick={handleBuyNow}
                                 disabled={
-                                    product.stock <= 0 ||
-                                    (variants.length > 0 && !selectedVariant)
+                                    currentStock <= 0 ||
+                                    (hasVariants && !selectedVariant)
                                 }
-                                className="rounded-xl bg-green-600 px-6 py-3 font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="w-full rounded-xl border-2 border-purple-600 bg-white px-6 py-3.5 font-bold text-purple-700 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Buy Now
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => router.push('/')}
+                                className="w-full py-3 text-sm font-semibold text-gray-500 transition hover:text-purple-700"
+                            >
+                                ← Continue Shopping
+                            </button>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => router.push('/')}
-                            className="mt-4 w-fit text-sm font-semibold text-purple-700 hover:underline"
-                        >
-                            Continue Shopping →
-                        </button>
                     </div>
                 </div>
+
+                {/* BOTTOM TRUST SECTION */}
+                <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+                    <div className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-white p-5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl text-purple-600">
+                            ✓
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-800">
+                                Quality Products
+                            </h3>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Carefully selected products
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-white p-5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl text-purple-600">
+                            ♡
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-800">
+                                Easy Shopping
+                            </h3>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Simple and convenient ordering
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-white p-5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl text-purple-600">
+                            ✓
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-800">
+                                Secure Checkout
+                            </h3>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Safe and secure ordering
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
         </main>
     )

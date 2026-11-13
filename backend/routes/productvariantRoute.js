@@ -6,7 +6,8 @@ const {
     createProductVariant,
     getAllProductVariants,
     updateProductVariant,
-    deleteProductVariant
+    deleteProductVariant,
+    updateProductVariantStatus 
 } = require('../controllers/productvariantcontroller');
 
 const upload = require('../middleware/upload');
@@ -48,6 +49,13 @@ router.delete(
     adminAuth,
     checkPermission('productvariant_delete'),
     deleteProductVariant
-);
+)
+
+router.put(
+    '/update-status/:id',
+    adminAuth,
+    checkPermission('productvariant_edit'),
+    updateProductVariantStatus
+)
 
 module.exports = router;

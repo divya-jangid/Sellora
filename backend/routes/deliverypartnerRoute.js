@@ -4,6 +4,7 @@ const router = express.Router()
 const {
     getAllDeliveryPartners,
     updateDeliveryPartnerStatus,
+    getPendingReassignment,
     updateOnlineStatus ,
     updateAvailability ,
     getMyAvailability 
@@ -28,6 +29,15 @@ router.put(
     checkPermission('deliverypartners_manage'),
     updateDeliveryPartnerStatus
 )
+
+
+router.get(
+    '/pending-reassignment',
+    adminAuth,
+    checkPermission('deliverypartners_manage'),
+    getPendingReassignment
+);
+
 
 // Delivery Partner Online / Offline
 router.put(

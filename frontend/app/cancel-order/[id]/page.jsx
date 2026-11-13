@@ -58,12 +58,12 @@ export default function CancelOrder() {
     // Confirm cancellation
     const handleCancelOrder = async () => {
         if (!selectedReason) {
-            toast.success('Please select a cancellation reason.')
+            toast.error('Please select a cancellation reason.')
             return
         }
 
         if (selectedReason === 'Other' && !otherReason.trim()) {
-            toast.success('Please enter your cancellation reason.')
+            toast.error('Please enter your cancellation reason.')
             return
         }
 
@@ -72,11 +72,7 @@ export default function CancelOrder() {
                 ? otherReason.trim()
                 : selectedReason
 
-        const confirmCancel = window.confirm(
-            'Are you sure you want to cancel this order?'
-        )
-
-        if (!confirmCancel) return
+    
 
         try {
             setCancelLoading(true)
@@ -92,7 +88,7 @@ export default function CancelOrder() {
             router.push('/my-orders')
 
         } catch (err) {
-            toast.success(
+            toast.error(
                 err.response?.data?.message ||
                 'Order cancel nahi ho paaya.'
             )

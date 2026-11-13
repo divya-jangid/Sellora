@@ -6,7 +6,8 @@ const {
     createCategory,
     getAllCategories,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    updateCategoryStatus 
 } = require('../controllers/categorycontroller')
 
 const upload = require('../middleware/upload')
@@ -49,12 +50,13 @@ router.delete(
     deleteCategory
 )
 
-// UPDATE CATEGORY STATUS
+
 router.put(
     '/status/:id',
     adminAuth,
     checkPermission('categories_edit'),
-    updateCategory
+    updateCategoryStatus
 )
+
 
 module.exports = router

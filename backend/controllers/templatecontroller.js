@@ -43,24 +43,75 @@ const createTemplate = async (req, res) => {
 }
 
 // GET ALL TEMPLATES
+
+
 const getTemplate = async (req, res) => {
     try {
-        const templates = await Template.find()
-            .sort({ createdAt: -1 })
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            sortBy = 'createdAt',
+            order = 'desc'
+        } = req.query;
+
+        const currentPage = Math.max(1, Number(page));
+        const pageLimit = Math.max(1, Number(limit));
+        const skip = (currentPage - 1) * pageLimit;
+
+        const filter = {};
+
+        // Search by template name and subject
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { subject: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Allowed sorting fields
+        const allowedSortFields = [
+            'createdAt',
+            'name'
+        ];
+
+        const sortField = allowedSortFields.includes(sortBy)
+            ? sortBy
+            : 'createdAt';
+
+        const sortOrder = order === 'asc' ? 1 : -1;
+
+        const totalTemplates = await Template.countDocuments(filter);
+
+        const templates = await Template.find(filter)
+            .sort({ [sortField]: sortOrder })
+            .skip(skip)
+            .limit(pageLimit);
+
+        const totalPages = Math.ceil(totalTemplates / pageLimit);
 
         return res.status(200).json({
             message: 'Templates fetched successfully',
             status: true,
-            data: templates
-        })
+            data: templates,
+            pagination: {
+                totalTemplates,
+                totalPages,
+                currentPage,
+                limit: pageLimit,
+                hasNextPage: currentPage < totalPages,
+                hasPrevPage: currentPage > 1
+            }
+        });
 
     } catch (error) {
         return res.status(500).json({
             message: error.message,
             status: false
-        })
+        });
     }
-}
+};
+
 
 
 // UPDATE TEMPLATE

@@ -7,92 +7,148 @@ const transporter = require('../utils/email')
 const getEmailTemplate  = require('../utils/emailTemplate')
 const DeliveryPartner = require('../model/deliverypartnermodel')
 
+const Order = require('../model/ordermodel');
+const Delivery = require('../model/deliverymodel');
+const Inventory = require('../model/inventorymodel');
+
+const releaseReservedInventory = require('../utils/releaseReservedInventory');
+
+const pendingSignups = new Map()
+
 
 
 const userSignup = async (req, res) => {
     try {
         const { firstName, lastName, email, phone, password } = req.body
 
-        if (!firstName || !lastName || !email || !phone || !password) {
+        const normalizedEmail = email?.toLowerCase().trim()
+
+        if (!normalizedEmail) {
             return res.status(400).json({
-                message: 'All fields are required',
+                message: 'Email is required',
                 status: false
             })
         }
 
-        const normalizedEmail = email.toLowerCase().trim()
+        // FINAL SIGNUP AFTER EMAIL VERIFICATION
+        if (phone && password) {
+
+            const signupData = pendingSignups.get(normalizedEmail)
+
+            if (!signupData || !signupData.verified) {
+                return res.status(403).json({
+                    message: 'Please verify your email first',
+                    status: false
+                })
+            }
+
+            if (signupData.otpExpiry < Date.now()) {
+                pendingSignups.delete(normalizedEmail)
+
+                return res.status(400).json({
+                    message: 'Signup session expired. Please signup again.',
+                    status: false
+                })
+            }
+
+            const existingUser = await User.findOne({
+                $or: [
+                    { email: normalizedEmail },
+                    { phone: phone.trim() }
+                ]
+            })
+
+            if (existingUser) {
+                return res.status(409).json({
+                    message: 'Email or phone already exists',
+                    status: false
+                })
+            }
+
+            const userRole = await Role.findOne({
+                name: /^user$/i,
+                status: 'active'
+            })
+
+            if (!userRole) {
+                return res.status(404).json({
+                    message: 'User role not found',
+                    status: false
+                })
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 8)
+
+            const user = new User({
+                role: userRole._id,
+                firstName: signupData.firstName,
+                lastName: signupData.lastName,
+                email: normalizedEmail,
+                phone: phone.trim(),
+                password: hashedPassword,
+                isEmailVerified: true
+            })
+
+            await user.save()
+
+            pendingSignups.delete(normalizedEmail)
+
+            return res.status(201).json({
+                message: 'Account created successfully. Please login.',
+                status: true
+            })
+        }
+
+        // SEND OTP
+        if (!firstName || !lastName) {
+            return res.status(400).json({
+                message: 'First name and last name are required',
+                status: false
+            })
+        }
 
         const existingUser = await User.findOne({
-            $or: [
-                { email: normalizedEmail },
-                { phone }
-            ]
+            email: normalizedEmail
         })
 
         if (existingUser) {
             return res.status(409).json({
-                message: 'Email or phone already exists',
+                message: 'Email already exists',
                 status: false
             })
         }
 
-        const userRole = await Role.findOne({
-            name: /^user$/i,
-            status: 'active'
-        })
+        const otp = String(crypto.randomInt(100000, 1000000))
+        const otpExpiry = Date.now() + 10 * 60 * 1000
 
-        if (!userRole) {
-            return res.status(404).json({
-                message: 'User role not found',
-                status: false
-            })
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 8)
-
-        // Generate a 6-digit OTP
-        const otp = String(
-            Math.floor(100000 + Math.random() * 900000)
-        )
-
-        // OTP expires in 10 minutes
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000)
-
-        const user = new User({
-            role: userRole._id,
+        pendingSignups.set(normalizedEmail, {
             firstName,
             lastName,
-            email: normalizedEmail,
-            phone,
-            password: hashedPassword,
-            isEmailVerified: false,
-            emailVerificationOTP: otp,
-            emailVerificationOTPExpiry: otpExpiry
+            otp,
+            otpExpiry,
+            verified: false
         })
-
-        await user.save()
 
         try {
             await transporter.sendMail({
                 from: process.env.EMAIL_USER,
                 to: normalizedEmail,
                 subject: 'Verify your Sellora email',
-                text: `Your Sellora verification OTP is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`
+                text: `Your Sellora verification OTP is ${otp}. It expires in 10 minutes.`
             })
         } catch (emailError) {
-            await User.findByIdAndDelete(user._id)
+            pendingSignups.delete(normalizedEmail)
 
             return res.status(500).json({
-                message: 'Verification email could not be sent. Please try again.',
+                message: 'Verification email could not be sent',
                 status: false
             })
         }
 
-        return res.status(201).json({
-            message: 'Signup successful. Please verify your email using the OTP sent to your email address.',
+        return res.status(200).json({
+            message: 'OTP sent successfully',
             status: true,
-            requiresEmailVerification: true,
-            email: normalizedEmail
+            requiresEmailVerification: true
         })
 
     } catch (error) {
@@ -117,50 +173,40 @@ const verifyEmail = async (req, res) => {
             })
         }
 
-        const user = await User.findOne({
-            email: email.toLowerCase().trim()
-        })
+        const normalizedEmail = email.toLowerCase().trim()
 
-        if (!user) {
-            return res.status(404).json({
-                message: 'User not found',
-                status: false
-            })
-        }
+        const signupData = pendingSignups.get(normalizedEmail)
 
-        if (user.isEmailVerified) {
-            return res.status(200).json({
-                message: 'Email is already verified',
-                status: true
-            })
-        }
-
-        if (
-            !user.emailVerificationOTP ||
-            !user.emailVerificationOTPExpiry ||
-            user.emailVerificationOTPExpiry < new Date()
-        ) {
+        if (!signupData) {
             return res.status(400).json({
-                message: 'OTP is invalid or expired. Please signup again.',
+                message: 'Please signup again. OTP not found.',
                 status: false
             })
         }
 
-        if (String(otp).trim() !== user.emailVerificationOTP) {
+        if (signupData.otpExpiry < Date.now()) {
+            pendingSignups.delete(normalizedEmail)
+
+            return res.status(400).json({
+                message: 'OTP expired. Please signup again.',
+                status: false
+            })
+        }
+
+        if (String(otp).trim() !== signupData.otp) {
             return res.status(400).json({
                 message: 'Invalid OTP',
                 status: false
             })
         }
 
-        user.isEmailVerified = true
-        user.emailVerificationOTP = null
-        user.emailVerificationOTPExpiry = null
+        signupData.verified = true
+        signupData.otp = null
 
-        await user.save()
+        pendingSignups.set(normalizedEmail, signupData)
 
         return res.status(200).json({
-            message: 'Email verified successfully. You can now login.',
+            message: 'Email verified successfully',
             status: true
         })
 
@@ -242,13 +288,16 @@ const forgotPassword = async (req, res) => {
 }
 
 
+
 const resetPassword = async (req, res) => {
     try {
-        const { email, otp, newPassword } = req.body
+        const { newPassword } = req.body
 
-        if (!email || !otp || !newPassword) {
+        const resetToken = req.headers.authorization?.split(' ')[1]
+
+        if (!resetToken || !newPassword) {
             return res.status(400).json({
-                message: 'Email, OTP and new password are required',
+                message: 'Reset token and new password are required',
                 status: false
             })
         }
@@ -256,6 +305,87 @@ const resetPassword = async (req, res) => {
         if (newPassword.length < 8) {
             return res.status(400).json({
                 message: 'Password must be at least 8 characters long',
+                status: false
+            })
+        }
+
+        // Verify reset token
+        let decoded
+
+        try {
+            decoded = jwt.verify(
+                resetToken,
+                process.env.JWT_SECRET
+            )
+        } catch (error) {
+            return res.status(401).json({
+                message: 'Reset token is invalid or expired. Please verify OTP again.',
+                status: false
+            })
+        }
+
+        if (decoded.purpose !== 'password-reset') {
+            return res.status(401).json({
+                message: 'Invalid reset token',
+                status: false
+            })
+        }
+
+        const user = await User.findById(decoded.id)
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found',
+                status: false
+            })
+        }
+
+        // Ensure OTP was verified and has not been used
+        if (
+            !user.passwordResetOTP ||
+            !user.passwordResetOTPExpiry ||
+            user.passwordResetOTPExpiry < new Date()
+        ) {
+            return res.status(400).json({
+                message: 'Reset session is invalid or expired. Please request a new OTP.',
+                status: false
+            })
+        }
+
+        // Update password
+        user.password = await bcrypt.hash(newPassword, 8)
+
+        // Clear OTP so reset token cannot be reused
+        user.passwordResetOTP = null
+        user.passwordResetOTPExpiry = null
+
+        await user.save()
+
+        return res.status(200).json({
+            message: 'Password reset successful. Please login with your new password.',
+            status: true
+        })
+
+    } catch (error) {
+        console.error('Reset Password Error:', error)
+
+        return res.status(500).json({
+            message: 'Something went wrong. Please try again.',
+            status: false
+        })
+    }
+}
+
+
+
+
+const verifyResetOTP = async (req, res) => {
+    try {
+        const { email, otp } = req.body
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                message: 'Email and OTP are required',
                 status: false
             })
         }
@@ -273,14 +403,23 @@ const resetPassword = async (req, res) => {
             })
         }
 
-        // Check OTP and expiry
         if (
             !user.passwordResetOTP ||
-            !user.passwordResetOTPExpiry ||
-            user.passwordResetOTPExpiry < new Date()
+            !user.passwordResetOTPExpiry
         ) {
             return res.status(400).json({
-                message: 'OTP is invalid or expired. Please request a new OTP.',
+                message: 'OTP not found. Please request a new OTP.',
+                status: false
+            })
+        }
+
+        if (user.passwordResetOTPExpiry < new Date()) {
+            user.passwordResetOTP = null
+            user.passwordResetOTPExpiry = null
+            await user.save()
+
+            return res.status(400).json({
+                message: 'OTP has expired. Please request a new OTP.',
                 status: false
             })
         }
@@ -292,22 +431,26 @@ const resetPassword = async (req, res) => {
             })
         }
 
-        // Hash the new password before saving
-        user.password = await bcrypt.hash(newPassword, 8)
-
-        // Clear OTP so it cannot be reused
-        user.passwordResetOTP = null
-        user.passwordResetOTPExpiry = null
-
-        await user.save()
+        // Generate secure password reset token
+        const resetToken = jwt.sign(
+            {
+                id: user._id,
+                purpose: 'password-reset'
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: '10m'
+            }
+        )
 
         return res.status(200).json({
-            message: 'Password reset successful. Please login with your new password.',
-            status: true
+            message: 'OTP verified successfully.',
+            status: true,
+            resetToken
         })
 
     } catch (error) {
-        console.error('Reset Password Error:', error.message)
+        console.error('Verify Reset OTP Error:', error)
 
         return res.status(500).json({
             message: 'Something went wrong. Please try again.',
@@ -315,6 +458,7 @@ const resetPassword = async (req, res) => {
         })
     }
 }
+
 
 
 const userLogin = async (req, res) => {
@@ -633,6 +777,31 @@ await transporter.sendMail({
 
 const getAllUsers = async (req, res) => {
     try {
+        // Pagination
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+        const skip = (page - 1) * limit;
+
+        // Search
+        const search = req.query.search?.trim() || '';
+
+        // Sorting
+        const allowedSortFields = [
+            'firstName',
+            'lastName',
+            'email',
+            'phone',
+            'status',
+            'createdAt'
+        ];
+
+        const sortBy = allowedSortFields.includes(req.query.sortBy)
+            ? req.query.sortBy
+            : 'createdAt';
+
+        const order = req.query.order === 'asc' ? 1 : -1;
+
+        // Exclude logged-in user and Super Admin
         const superAdminRole = await Role.findOne({
             name: /^super admin$/i
         });
@@ -645,17 +814,53 @@ const getAllUsers = async (req, res) => {
             filter.role = { $ne: superAdminRole._id };
         }
 
+        // Search fields
+        if (search) {
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const searchRegex = new RegExp(escapedSearch, 'i');
+
+            const matchingRoles = await Role.find({
+                name: searchRegex
+            }).select('_id');
+
+            filter.$or = [
+                { firstName: searchRegex },
+                { lastName: searchRegex },
+                { email: searchRegex },
+                { phone: searchRegex },
+                { role: { $in: matchingRoles.map(role => role._id) } }
+            ];
+        }
+
+        // Total users count
+        const totalUsers = await User.countDocuments(filter);
+
+        const totalPages = Math.ceil(totalUsers / limit);
+
+        // Fetch users
         const users = await User.find(filter)
             .select('-password')
-            .populate('role');
+            .populate('role')
+            .sort({ [sortBy]: order })
+            .skip(skip)
+            .limit(limit);
 
         return res.status(200).json({
             message: 'users fetched successfully',
             status: true,
-            data: users
+            data: users,
+            pagination: {
+                totalUsers,
+                totalPages,
+                currentPage: page,
+                limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
         });
-    }
-    catch (err) {
+
+    } catch (err) {
         return res.status(500).json({
             message: err.message,
             status: false
@@ -849,6 +1054,175 @@ const updateMyProfile = async (req, res) => {
 }
 
 
+
+
+const deactivateMyAccount = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.status !== 'active') {
+            return res.status(400).json({
+                success: false,
+                message: 'Account is already inactive'
+            });
+        }
+
+        // Find all customer orders except delivered and cancelled
+        const orders = await Order.find({
+            user: userId,
+            orderStatus: {
+                $nin: ['delivered', 'cancelled']
+            }
+        });
+
+        const cancelledPartnerIds = [];
+
+        for (const existingOrder of orders) {
+
+            // Cancel order
+            const order = await Order.findOneAndUpdate(
+                {
+                    _id: existingOrder._id,
+                    orderStatus: {
+                        $nin: ['delivered', 'cancelled']
+                    }
+                },
+                {
+                    $set: {
+                        orderStatus: 'cancelled',
+                        cancelledAt: new Date(),
+                        cancellationReason: 'Customer account deactivated'
+                    }
+                },
+                { new: true }
+            );
+
+            if (!order) continue;
+
+            try {
+                // Release reserved inventory
+                await releaseReservedInventory(order);
+
+            } catch (stockError) {
+
+                // Restore order status if inventory release fails
+                await Order.updateOne(
+                    {
+                        _id: order._id,
+                        orderStatus: 'cancelled'
+                    },
+                    {
+                        $set: {
+                            orderStatus: existingOrder.orderStatus,
+                            cancelledAt: null,
+                            cancellationReason: ''
+                        }
+                    }
+                );
+
+                throw stockError;
+            }
+
+            // Cancel active delivery and clear OTP
+            const delivery = await Delivery.findOneAndUpdate(
+                {
+                    order: order._id,
+                    deliveryStatus: {
+                        $in: [
+                            'ASSIGNED',
+                            'ACCEPTED',
+                            'PICKED_UP',
+                            'OUT_FOR_DELIVERY'
+                        ]
+                    }
+                },
+                {
+                    $set: {
+                        deliveryStatus: 'CANCELLED',
+                        deliveryOtp: null,
+                        otpAttempts: 0,
+                        otpBlockedUntil: null
+                    }
+                },
+                { new: true }
+            );
+
+            if (delivery?.deliveryPartner) {
+                cancelledPartnerIds.push(delivery.deliveryPartner);
+            }
+        }
+
+        // Update delivery partner availability
+        const uniquePartnerIds = [
+            ...new Set(
+                cancelledPartnerIds.map(id => id.toString())
+            )
+        ];
+
+        for (const partnerId of uniquePartnerIds) {
+
+            const activeDelivery = await Delivery.findOne({
+                deliveryPartner: partnerId,
+                deliveryStatus: {
+                    $in: [
+                        'ASSIGNED',
+                        'ACCEPTED',
+                        'PICKED_UP',
+                        'OUT_FOR_DELIVERY'
+                    ]
+                }
+            });
+
+            const partner = await DeliveryPartner.findById(partnerId);
+
+            if (partner) {
+                partner.isAvailable =
+                    partner.status === 'ACTIVE' &&
+                    partner.isOnline === true &&
+                    !activeDelivery;
+
+                await partner.save();
+            }
+        }
+
+        // Deactivate customer account
+        user.status = 'inactive';
+        await user.save();
+
+        // Clear customer login cookie
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Account deactivated and eligible orders cancelled successfully'
+        });
+
+    } catch (error) {
+        console.error('DEACTIVATE ACCOUNT ERROR:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to deactivate account',
+            error: error.message
+        });
+    }
+};
+
+
+
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -948,16 +1322,85 @@ const setPassword = async (req, res) => {
     }
 }
 
-const updateUserStatus = async ( req, res ) =>{
-     try{
-        
-     }
-     catch(err){
 
-     }
+const updateUserStatus = async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const user = await User.findById(id)
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found',
+                status: false
+            })
+        }
+
+        const newStatus =
+            user.status === 'active' ? 'inactive' : 'active'
+
+        user.status = newStatus
+        await user.save()
+
+        // Find Delivery Partner
+        const partner = await DeliveryPartner.findOne({
+            user: id
+        })
+
+        if (partner) {
+
+            partner.status =
+                newStatus === 'active' ? 'ACTIVE' : 'INACTIVE'
+
+            if (newStatus === 'inactive') {
+
+                partner.isOnline = false
+                partner.isAvailable = false
+
+                // Find active deliveries
+                const activeDeliveries = await Delivery.find({
+                    deliveryPartner: partner._id,
+                    deliveryStatus: {
+                        $in: [
+                            'ASSIGNED',
+                            'ACCEPTED',
+                            'PICKED_UP',
+                            'OUT_FOR_DELIVERY'
+                        ]
+                    }
+                })
+
+                // Cancel deliveries, NOT orders
+                for (const delivery of activeDeliveries) {
+                    delivery.deliveryStatus = 'CANCELLED'
+                    delivery.deliveryOtp = null
+                    delivery.otpAttempts = 0
+                    delivery.otpBlockedUntil = null
+                    delivery.notes = 'REASSIGNMENT_REQUIRED'
+
+                    await delivery.save()
+                }
+            }
+
+            await partner.save()
+        }
+
+        return res.status(200).json({
+            message: 'User status updated successfully',
+            status: true,
+            data: user
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+            status: false
+        })
+    }
 }
 
 
-module.exports = {userSignup, verifyEmail, forgotPassword ,     resetPassword,
+
+module.exports = {userSignup, verifyEmail, forgotPassword ,     resetPassword, verifyResetOTP,
  userLogin, checkUser,  createUser , getAllUsers, updateUser, 
- deleteUser, updateMyProfile, logout , setPassword}
+ deleteUser, updateMyProfile, deactivateMyAccount, logout , setPassword, updateUserStatus}
