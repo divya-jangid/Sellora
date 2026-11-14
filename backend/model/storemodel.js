@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 
 const storeSchema = new mongoose.Schema({
@@ -34,14 +35,18 @@ const storeSchema = new mongoose.Schema({
         trim: true
     },
 
+    // GEOJSON LOCATION
     location: {
-        latitude: {
-            type: Number,
-            default: null
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point',
+            required: true
         },
-        longitude: {
-            type: Number,
-            default: null
+
+        coordinates: {
+            type: [Number],
+            required: true
         }
     },
 
@@ -59,6 +64,10 @@ const storeSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-const Store = mongoose.model('Store', storeSchema)
 
-module.exports = Store 
+// 2dsphere index for geospatial queries
+storeSchema.index({ location: '2dsphere' });
+
+const Store = mongoose.model('Store', storeSchema);
+
+module.exports = Store;

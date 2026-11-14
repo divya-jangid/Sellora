@@ -18,7 +18,6 @@ function Inventory() {
 
     const [showView, setShowView] = useState(false)
     const [viewItem, setViewItem] = useState(null)
-    const [updatingStatus, setUpdatingStatus] = useState(null)
 
     // SEARCH, SORT AND PAGINATION
     const [search, setSearch] = useState('')
@@ -388,54 +387,7 @@ function Inventory() {
         setShowView(true)
     }
 
-    // TOGGLE STATUS
-    const handleStatusToggle = async (item) => {
-        if (!hasPermission('storeinventory_edit')) {
-            toast.error('You do not have permission to update inventory status.')
-            return
-        }
-
-        try {
-            setUpdatingStatus(item._id)
-
-            const res = await axios.put(
-                `http://localhost:8000/inventory/update-status/${item._id}`,
-                {},
-                { withCredentials: true }
-            )
-
-            if (!res.data.status) {
-                throw new Error(res.data.message || 'Status update failed')
-            }
-
-            await getInventory()
-
-            if (viewItem?._id === item._id) {
-                setViewItem((prev) => ({
-                    ...prev,
-                    status: res.data.data.status
-                }))
-            }
-
-            toast.success(res.data.message)
-
-        } catch (error) {
-            console.log(
-                'STATUS UPDATE ERROR:',
-                error.response?.data || error.message
-            )
-
-            toast.error(
-                error.response?.data?.message ||
-                error.message ||
-                'Unable to update inventory status.'
-            )
-
-        } finally {
-            setUpdatingStatus(null)
-        }
-    }
-
+ 
     // CLOSE FORM
     const handleClose = () => {
         setShowForm(false)
@@ -747,17 +699,7 @@ function Inventory() {
                                     </p>
                                 </div>
 
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm mb-1">Status</p>
-                                    <span className={`inline-block px-3 py-1 rounded-full text-xs sm:text-sm ${
-                                        viewItem.status === 'active'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                        {viewItem.status}
-                                    </span>
-                                </div>
-
+                            
                                 <div>
                                     <p className="text-gray-500 text-xs sm:text-sm">Last Restocked</p>
                                     <p className="font-semibold text-sm sm:text-base">
@@ -801,7 +743,6 @@ function Inventory() {
                                 <th className="p-3 text-sm font-semibold">Reserved</th>
                                 <th className="p-3 text-sm font-semibold">Available</th>
                                 <th className="p-3 text-sm font-semibold">Reorder Level</th>
-                                <th className="p-3 text-sm font-semibold">Status</th>
                                 <th className="p-3 text-sm font-semibold">Actions</th>
                             </tr>
                         </thead>
@@ -834,43 +775,7 @@ function Inventory() {
 
                                     <td className="p-3 text-sm">{item.reorderLevel}</td>
 
-                                    {/* STATUS TOGGLE */}
-                                    <td className="p-3">
-
-                                        <button
-                                            type="button"
-                                            onClick={() => handleStatusToggle(item)}
-                                            disabled={!canEdit || updatingStatus === item._id}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-70 ${
-                                                item.status === 'active'
-                                                    ? 'bg-green-500'
-                                                    : 'bg-gray-300'
-                                            }`}
-                                            title={
-                                                canEdit
-                                                    ? `Change status to ${item.status === 'active' ? 'inactive' : 'active'}`
-                                                    : item.status
-                                            }
-                                        >
-                                            <span
-                                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${
-                                                    item.status === 'active'
-                                                        ? 'translate-x-6'
-                                                        : 'translate-x-1'
-                                                }`}
-                                            />
-                                        </button>
-
-                                        <span className={`ml-2 text-xs font-medium ${
-                                            item.status === 'active'
-                                                ? 'text-green-600'
-                                                : 'text-gray-500'
-                                        }`}>
-                                            {updatingStatus === item._id
-                                                ? 'Updating...'
-                                                : item.status}
-                                        </span>
-                                    </td>
+                                  
 
                                     {/* ACTIONS */}
                                     <td className="p-3">

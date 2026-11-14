@@ -9,9 +9,14 @@ import Banner from '@/components/Banner'
 import CategoryNavbar from '@/components/CategoryNavbar'
 import { useCart } from '@/context/CartContext'
 import { toast } from 'react-hot-toast'
+import { useLocationContext } from '@/context/LocationContext'
 
 const Page = () => {
     const router = useRouter()
+
+    const { selectedStore, locationLoading } = useLocationContext()
+
+    const storeId = selectedStore?._id
 
     const [variants, setVariants] = useState([])
     const [wishlistAction, setWishlistAction] = useState(null)
@@ -30,8 +35,8 @@ const Page = () => {
         loadingWishlist: wishlistLoading
     } = useCart()
 
-    // GET FEATURED PRODUCTS
-    const getVariants = async () => {
+    // GET STORE-WISE FEATURED PRODUCTS
+    const getVariants = async (currentStoreId) => {
         try {
             setLoadingProducts(true)
 
@@ -42,6 +47,7 @@ const Page = () => {
                         'Cache-Control': 'no-cache'
                     },
                     params: {
+                        storeId: currentStoreId,
                         t: Date.now()
                     }
                 }
@@ -65,6 +71,8 @@ const Page = () => {
                 'GET FEATURED PRODUCTS ERROR:',
                 err.response?.data || err.message
             )
+
+            setVariants([])
         } finally {
             setLoadingProducts(false)
         }
@@ -143,23 +151,24 @@ const Page = () => {
             await addProductToCart(productId, 1, item._id)
 
             toast.success('Product added to cart!')
-        } catch (error) {
+        } 
+        catch (error) {
             console.log(
                 'ADD CART ERROR:',
                 error.response?.data || error.message
             )
 
-            if (
-                error.response?.status === 401 ||
-                error.response?.status === 403
-            ) {
-                toast.error('Please login to add items to your cart.')
+            if (error.response?.status === 401) {
+                // Login Required popup CartContext se open hoga
+            } else if (error.response?.status === 403) {
+                toast.error('You are not allowed to add items to cart.')
             } else {
                 toast.error(
                     error.response?.data?.message ||
                     'Unable to add product to cart.'
                 )
             }
+
         } finally {
             setAddingProduct(null)
         }
@@ -243,8 +252,19 @@ const Page = () => {
     }
 
     useEffect(() => {
-        getVariants()
-    }, [])
+
+        if (locationLoading) return
+
+        if (!storeId) {
+            setVariants([])
+            setLoadingProducts(false)
+            return
+        }
+
+        getVariants(storeId)
+
+    }, [storeId, locationLoading])
+
 
     const featuredVariants = variants.filter(
         (variant) => variant.status === 'active'

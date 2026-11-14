@@ -36,6 +36,12 @@ const Store = () => {
     const [loading, setLoading] = useState(false)
     const [updatingStatus, setUpdatingStatus] = useState('')
 
+    // ADDRESS AUTOCOMPLETE STATES
+    const [addressSuggestions, setAddressSuggestions] = useState([])
+    const [searchingAddress, setSearchingAddress] = useState(false)
+    const [reverseLoading, setReverseLoading] = useState(false)
+    const [showSuggestions, setShowSuggestions] = useState(false)
+
     const initialForm = {
         name: '',
         code: '',
@@ -204,6 +210,11 @@ const Store = () => {
                 ...initialForm.location
             }
         })
+
+        setAddressSuggestions([])
+        setShowSuggestions(false)
+        setSearchingAddress(false)
+        setReverseLoading(false)
     }
 
     // CLOSE FORM
@@ -223,17 +234,174 @@ const Store = () => {
         }))
     }
 
-    // HANDLE LOCATION CHANGE
-    const handleLocationChange = (e) => {
-        const { name, value } = e.target
+    // PHOTON ADDRESS SEARCH
+    useEffect(() => {
+        if (!showForm) return
 
-        setForm((prev) => ({
-            ...prev,
-            location: {
-                ...prev.location,
-                [name]: value
+        const query = form.address.trim()
+
+        if (
+            query.length < 3 ||
+            (
+                form.location.latitude !== '' &&
+                form.location.longitude !== ''
+            )
+        ) {
+            setAddressSuggestions([])
+            setShowSuggestions(false)
+            setSearchingAddress(false)
+            return
+        }
+
+        const controller = new AbortController()
+
+        const searchAddress = async () => {
+            try {
+                setSearchingAddress(true)
+
+                const response = await fetch(
+                    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+                    {
+                        signal: controller.signal
+                    }
+                )
+
+                if (!response.ok) {
+                    throw new Error('Address search failed')
+                }
+
+                const data = await response.json()
+
+                setAddressSuggestions(data.features || [])
+                setShowSuggestions(true)
+
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.log('PHOTON ERROR:', error.message)
+                    setAddressSuggestions([])
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setSearchingAddress(false)
+                }
             }
-        }))
+        }
+
+        const timer = setTimeout(searchAddress, 500)
+
+        return () => {
+            clearTimeout(timer)
+            controller.abort()
+        }
+
+    }, [
+        form.address,
+        form.location.latitude,
+        form.location.longitude,
+        showForm
+    ])
+
+    // SELECT ADDRESS
+    const handleSelectAddress = async (feature) => {
+        try {
+            const coordinates = feature?.geometry?.coordinates
+
+            if (
+                !Array.isArray(coordinates) ||
+                coordinates.length < 2
+            ) {
+                toast.error('Invalid location selected')
+                return
+            }
+
+            const [longitude, latitude] = coordinates
+
+            if (
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude)
+            ) {
+                toast.error('Invalid coordinates')
+                return
+            }
+
+            const properties = feature.properties || {}
+
+            // PHOTON ADDRESS
+            const photonAddress = [
+                properties.name,
+                properties.street,
+                properties.district,
+                properties.city,
+                properties.state,
+                properties.postcode,
+                properties.country
+            ]
+                .filter(Boolean)
+                .filter((value, index, array) =>
+                    array.indexOf(value) === index
+                )
+                .join(', ')
+
+            // FIRST SAVE PHOTON ADDRESS AND COORDINATES
+            setForm((prev) => ({
+                ...prev,
+                address: photonAddress,
+                location: {
+                    latitude,
+                    longitude
+                }
+            }))
+
+            setShowSuggestions(false)
+            setAddressSuggestions([])
+
+            // NOMINATIM REVERSE GEOCODING
+            setReverseLoading(true)
+
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=en`
+                )
+
+                if (!response.ok) {
+                    throw new Error('Nominatim request failed')
+                }
+
+                const data = await response.json()
+
+                if (data.display_name) {
+                    setForm((prev) => {
+                        // Prevent an older reverse request from
+                        // overwriting a newly selected address.
+                        if (
+                            prev.location.latitude !== latitude ||
+                            prev.location.longitude !== longitude
+                        ) {
+                            return prev
+                        }
+
+                        return {
+                            ...prev,
+                            address: data.display_name
+                        }
+                    })
+                }
+
+            } catch (error) {
+                console.log('NOMINATIM ERROR:', error.message)
+
+                // Photon address and coordinates are already saved
+                toast('Complete address could not be fetched. Using selected address.')
+            } finally {
+                setReverseLoading(false)
+            }
+
+            toast.success('Location selected successfully')
+
+        } catch (error) {
+            console.log('SELECT ADDRESS ERROR:', error.message)
+            toast.error('Unable to select address')
+        }
     }
 
     // OPEN ADD FORM
@@ -259,6 +427,17 @@ const Store = () => {
 
         if (!editId && !hasPermission('store_create')) {
             toast.error('You do not have permission to create stores')
+            return
+        }
+
+        // ADDRESS AND COORDINATES VALIDATION
+        if (
+            form.location.latitude === '' ||
+            form.location.longitude === '' ||
+            !Number.isFinite(Number(form.location.latitude)) ||
+            !Number.isFinite(Number(form.location.longitude))
+        ) {
+            toast.error('Please select an address from suggestions')
             return
         }
 
@@ -339,6 +518,8 @@ const Store = () => {
             serviceRadius: stores.serviceRadius ?? ''
         })
 
+        setAddressSuggestions([])
+        setShowSuggestions(false)
         setShowForm(true)
     }
 
@@ -570,7 +751,6 @@ const Store = () => {
                         </p>
                     </div>
                 ) : (
-                    /* IMPORTANT: SCROLL ONLY INSIDE TABLE */
                     <div className="block w-full min-w-0 max-w-full overflow-x-auto">
                         <table className="w-full min-w-[1050px] text-left">
 
@@ -637,7 +817,6 @@ const Store = () => {
                                             {stores.serviceRadius ?? 'N/A'}
                                         </td>
 
-                                        {/* SAME GREEN STATUS TOGGLE */}
                                         <td className="whitespace-nowrap px-4 py-4">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-xs font-semibold ${
@@ -672,7 +851,6 @@ const Store = () => {
                                             </div>
                                         </td>
 
-                                        {/* ACTIONS */}
                                         <td className="whitespace-nowrap px-4 py-4">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button
@@ -778,10 +956,12 @@ const Store = () => {
                         <form onSubmit={handleSubmit}>
                             <div className="grid max-h-[65vh] grid-cols-1 gap-4 overflow-y-auto p-4 sm:grid-cols-2 sm:p-6">
 
+                                {/* STORE NAME */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Store Name
                                     </label>
+
                                     <input
                                         type="text"
                                         name="name"
@@ -793,10 +973,12 @@ const Store = () => {
                                     />
                                 </div>
 
+                                {/* STORE CODE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Store Code
                                     </label>
+
                                     <input
                                         type="text"
                                         name="code"
@@ -808,10 +990,12 @@ const Store = () => {
                                     />
                                 </div>
 
+                                {/* MANAGER */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Manager
                                     </label>
+
                                     <select
                                         name="manager"
                                         value={form.manager}
@@ -820,6 +1004,7 @@ const Store = () => {
                                         required
                                     >
                                         <option value="">Select Manager</option>
+
                                         {user.map((users) => (
                                             <option key={users._id} value={users._id}>
                                                 {users.firstName} {users.lastName}
@@ -828,10 +1013,12 @@ const Store = () => {
                                     </select>
                                 </div>
 
+                                {/* PHONE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Phone
                                     </label>
+
                                     <input
                                         type="text"
                                         name="phone"
@@ -843,55 +1030,142 @@ const Store = () => {
                                     />
                                 </div>
 
-                                <div className="sm:col-span-2">
+                                {/* ADDRESS WITH PHOTON */}
+                                <div className="relative sm:col-span-2">
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Address
                                     </label>
+
                                     <input
                                         type="text"
                                         name="address"
                                         value={form.address}
-                                        onChange={handleChange}
-                                        placeholder="Enter address"
+                                        onChange={(e) => {
+                                            const value = e.target.value
+
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                address: value,
+                                                location: {
+                                                    latitude: '',
+                                                    longitude: ''
+                                                }
+                                            }))
+
+                                            setShowSuggestions(true)
+                                        }}
+                                        onFocus={() => {
+                                            if (form.address.length >= 3) {
+                                                setShowSuggestions(true)
+                                            }
+                                        }}
+                                        placeholder="Search store address..."
+                                        autoComplete="off"
                                         className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                                         required
                                     />
+
+                                    {searchingAddress && (
+                                        <p className="mt-1 text-xs text-indigo-600">
+                                            Searching addresses...
+                                        </p>
+                                    )}
+
+                                    {showSuggestions && addressSuggestions.length > 0 && (
+                                        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+
+                                            {addressSuggestions.map((item, index) => {
+                                                const properties = item.properties || {}
+
+                                                const suggestionAddress = [
+                                                    properties.name,
+                                                    properties.street,
+                                                    properties.city || properties.district,
+                                                    properties.state,
+                                                    properties.country
+                                                ]
+                                                    .filter(Boolean)
+                                                    .filter((value, i, array) =>
+                                                        array.indexOf(value) === i
+                                                    )
+                                                    .join(', ')
+
+                                                return (
+                                                    <button
+                                                        key={`${item.geometry?.coordinates?.join(',')}-${index}`}
+                                                        type="button"
+                                                        onClick={() => handleSelectAddress(item)}
+                                                        className="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-indigo-50"
+                                                    >
+                                                        <span className="font-semibold">
+                                                            {properties.name || properties.street || 'Address'}
+                                                        </span>
+
+                                                        <span className="mt-1 block text-xs text-slate-500">
+                                                            {suggestionAddress}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {showSuggestions &&
+                                        form.address.length >= 3 &&
+                                        !searchingAddress &&
+                                        addressSuggestions.length === 0 && (
+                                            <p className="mt-1 text-xs text-slate-500">
+                                                No address suggestions found.
+                                            </p>
+                                        )}
+
+                                    {reverseLoading && (
+                                        <p className="mt-1 text-xs text-indigo-600">
+                                            Fetching complete address...
+                                        </p>
+                                    )}
+
+                                    <p className="mt-1 text-xs text-slate-400">
+                                        Search and select an address to automatically get its coordinates.
+                                    </p>
                                 </div>
 
+                                {/* LATITUDE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Latitude
                                     </label>
+
                                     <input
-                                        type="number"
-                                        name="latitude"
-                                        step="any"
+                                        type="text"
                                         value={form.location.latitude}
-                                        onChange={handleLocationChange}
-                                        placeholder="Enter latitude"
-                                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                                        placeholder="Auto-filled"
+                                        readOnly
+                                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm outline-none"
                                     />
                                 </div>
 
+                                {/* LONGITUDE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Longitude
                                     </label>
+
                                     <input
-                                        type="number"
-                                        name="longitude"
-                                        step="any"
+                                        type="text"
                                         value={form.location.longitude}
-                                        onChange={handleLocationChange}
-                                        placeholder="Enter longitude"
-                                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                                        placeholder="Auto-filled"
+                                        readOnly
+                                        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm outline-none"
                                     />
                                 </div>
 
+                                {/* SERVICE RADIUS */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Service Radius
                                     </label>
+
                                     <input
                                         type="number"
                                         name="serviceRadius"
@@ -917,7 +1191,7 @@ const Store = () => {
 
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || reverseLoading}
                                     className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-2.5 font-semibold text-white shadow-md shadow-indigo-200 transition hover:from-indigo-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                                 >
                                     {loading
@@ -940,6 +1214,7 @@ const Store = () => {
                                 <h2 className="text-xl font-bold text-slate-900">
                                     Store Details
                                 </h2>
+
                                 <p className="mt-1 text-sm text-slate-500">
                                     Complete store information.
                                 </p>

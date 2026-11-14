@@ -82,7 +82,11 @@ const getAllBrands = async (req, res) => {
         const skip = (currentPage - 1) * pageLimit;
 
         // Search filter
-        const filter = {};
+           const isPublic = req.path === '/public'
+
+          const filter = isPublic
+           ? { status: 'active' }
+              : {}
 
         if (search) {
             filter.name = {
@@ -104,11 +108,17 @@ const getAllBrands = async (req, res) => {
         const totalBrands = await Brand.countDocuments(filter);
 
         // Get brands
-        const brands = await Brand.find(filter)
-            .sort({ [sortField]: sortOrder })
-            .skip(skip)
-            .limit(pageLimit);
+              let brandsQuery = Brand.find(filter)
+             .sort({ [sortField]: sortOrder })
 
+            if (!isPublic) {
+              brandsQuery = brandsQuery
+               .skip(skip)
+              .limit(pageLimit)
+          }
+
+        const brands = await brandsQuery
+        
         const totalPages = Math.ceil(totalBrands / pageLimit);
 
         return res.status(200).json({

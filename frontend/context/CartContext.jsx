@@ -148,6 +148,13 @@ export const CartProvider = ({ children }) => {
                 error.response?.data || error.message
             )
 
+            // USER NOT LOGGED IN
+            if (error.response?.status === 401) {
+                window.dispatchEvent(
+                    new Event('open-login-modal')
+                )
+            }
+
             throw error
         }
     }

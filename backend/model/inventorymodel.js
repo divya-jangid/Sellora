@@ -52,12 +52,6 @@ const storeInventorySchema = new mongoose.Schema({
         min: 0
     },
 
-    status: {
-        type: String,
-        enum: ['active', 'inactive'],
-        default: 'active'
-    },
-
     lastRestockedAt: {
         type: Date,
         default: null

@@ -31,6 +31,9 @@ router.get(
     getAllBrands
 )
 
+// PUBLIC BRANDS
+router.get('/public', getAllBrands)
+
 // UPDATE BRAND
 router.put(
     '/update/:id',

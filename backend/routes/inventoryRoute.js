@@ -6,8 +6,7 @@ const {
     getAllInventory,
     getLowStockInventory ,
     updateInventory,
-    deleteInventory,
-    updateInventoryStatus 
+    deleteInventory
 } = require('../controllers/inventorycontroller')
 
 const adminAuth = require('../middleware/adminAuth')
@@ -29,6 +28,8 @@ router.get(
     getAllInventory
 )
 
+// PUBLIC INVENTORY
+router.get('/public', getAllInventory)
 
 router.get('/low-stock', adminAuth, checkPermission('storeinventory_view'), getLowStockInventory)
 
@@ -48,11 +49,5 @@ router.delete(
     deleteInventory
 )
 
-router.put(
-    '/update-status/:id',
-    adminAuth,
-    checkPermission('storeinventory_edit'),
-    updateInventoryStatus
-)
 
 module.exports = router
