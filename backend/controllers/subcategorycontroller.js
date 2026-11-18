@@ -87,12 +87,12 @@ const createSubCategory = async (req, res) => {
 // GET ALL SUBCATEGORIES
 
 
+
 const getAllSubCategories = async (req, res) => {
     try {
         const isPublic = req.path === '/public'
 
         const {
-            categoryId,
             categorySlug,
             storeId,
             page = 1,
@@ -106,10 +106,7 @@ const getAllSubCategories = async (req, res) => {
             isDeleted: false
         }
 
-        if (categoryId) {
-            filter.category = categoryId
-        }
-
+        // CATEGORY FILTER USING SLUG ONLY
         if (categorySlug) {
             const category = await Category.findOne({
                 slug: categorySlug,
@@ -149,32 +146,40 @@ const getAllSubCategories = async (req, res) => {
                 })
             }
 
-            // Active inventory with available stock
+            // Get inventory with available stock in selected store
             const inventory = await Inventory.find({
                 store: storeId,
-                status: 'active',
                 availableQuantity: { $gt: 0 },
                 variant: { $ne: null }
-            }).select('product variant')
+            }).select('variant')
+
+            // Get unique variant IDs
+            const variantIds = [
+                ...new Set(
+                    inventory.map(item => String(item.variant))
+                )
+            ]
 
             // Only active variants
-            const variantIds = inventory.map(item => item.variant)
-
             const variants = await ProductVariant.find({
                 _id: { $in: variantIds },
                 status: 'active'
             }).select('product')
 
-            // Only active products
-            const productIds = [...new Set(
-                variants.map(item => String(item.product))
-            )]
+            // Get unique product IDs
+            const productIds = [
+                ...new Set(
+                    variants.map(item => String(item.product))
+                )
+            ]
 
+            // Only active products
             const productFilter = {
                 _id: { $in: productIds },
                 status: 'active'
             }
 
+            // Category-wise product filtering
             if (filter.category) {
                 productFilter.category = filter.category
             }
@@ -182,18 +187,22 @@ const getAllSubCategories = async (req, res) => {
             const products = await Product.find(productFilter)
                 .select('subCategory')
 
-            // Available subcategory IDs
-            const subcategoryIds = [...new Set(
-                products
-                    .filter(item => item.subCategory)
-                    .map(item => String(item.subCategory))
-            )]
+            // Get available subcategory IDs
+            const subcategoryIds = [
+                ...new Set(
+                    products
+                        .filter(item => item.subCategory)
+                        .map(item => String(item.subCategory))
+                )
+            ]
 
+            // Only active subcategories having available products
             filter._id = { $in: subcategoryIds }
             filter.status = 'active'
 
             const subcategories = await SubCategory.find(filter)
                 .populate('category', 'name slug')
+                .sort({ name: 1 })
 
             return res.status(200).json({
                 message: 'Subcategories fetched successfully',
@@ -228,7 +237,8 @@ const getAllSubCategories = async (req, res) => {
         const pageLimit = Math.max(1, Number(limit) || 10)
         const skip = (currentPage - 1) * pageLimit
 
-        const totalSubCategories = await SubCategory.countDocuments(filter)
+        const totalSubCategories =
+            await SubCategory.countDocuments(filter)
 
         const subcategories = await SubCategory.find(filter)
             .populate('category', 'name slug')

@@ -377,7 +377,7 @@ function Header() {
   const handleLogout = async () => {
     try {
       await axios.post(
-        'http://localhost:8000/user/logout',
+        'http://localhost:8000/admin/logout',
         {},
         { withCredentials: true }
       )

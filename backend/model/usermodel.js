@@ -96,6 +96,7 @@ passwordSetupExpiry: {
         type: Date,
         default: null
     }
+    
 }, {
     timestamps: true
 });

@@ -21,6 +21,7 @@ const Product = () => {
         brand: '',
         description: '',
         stock: '',
+        isFeatured: false,
     })
 
     const [product, setProduct] = useState([])
@@ -248,6 +249,7 @@ const Product = () => {
             brand: '',
             description: '',
             stock: '',
+            isFeatured: false,
         })
 
         setImage(null)
@@ -289,6 +291,7 @@ const Product = () => {
             brand: data.brand?._id || data.brand || '',
             description: data.description || '',
             stock: data.stock ?? '',
+            isFeatured: data.isFeatured ?? false,
         })
 
         setShowForm(true)
@@ -364,6 +367,7 @@ const Product = () => {
                     brand: form.brand,
                     description: form.description,
                     stock: Number(form.stock),
+                    isFeatured: form.isFeatured,
                 }
 
                 await axios.put(
@@ -380,6 +384,7 @@ const Product = () => {
                 formData.append('brand', form.brand)
                 formData.append('description', form.description)
                 formData.append('stock', form.stock)
+                formData.append('isFeatured', String(form.isFeatured))
                 formData.append('image', image)
 
                 if (form.subcategory) {
@@ -700,6 +705,33 @@ const Product = () => {
                                 />
                             </div>
 
+                            {/* FEATURED PRODUCT */}
+                            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                                <label className="flex cursor-pointer items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.isFeatured}
+                                        onChange={(e) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                isFeatured: e.target.checked
+                                            }))
+                                        }
+                                        className="h-5 w-5 rounded accent-indigo-600"
+                                    />
+
+                                    <div>
+                                        <p className="font-semibold text-slate-800">
+                                            Featured Product
+                                        </p>
+
+                                        <p className="text-xs text-slate-500">
+                                            Show this product in the featured products section.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+
                             {/* FORM BUTTONS */}
                             <div className="flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row">
                                 <button
@@ -801,6 +833,17 @@ const Product = () => {
                                 </div>
 
                                 <div>
+                                    <p className="text-xs text-slate-500">Featured</p>
+                                    <p className={`mt-1 font-semibold ${
+                                        viewProduct.isFeatured
+                                            ? 'text-green-600'
+                                            : 'text-slate-500'
+                                    }`}>
+                                        {viewProduct.isFeatured ? 'Yes' : 'No'}
+                                    </p>
+                                </div>
+
+                                <div>
                                     <p className="text-xs text-slate-500">Status</p>
                                     <p className="mt-1 font-semibold capitalize text-slate-800">
                                         {viewProduct.status || 'N/A'}
@@ -891,7 +934,7 @@ const Product = () => {
 
                 {/* TABLE SCROLL ONLY */}
                 <div className="w-full min-w-0 overflow-x-auto">
-                    <table className="w-full min-w-[950px] text-left text-sm">
+                    <table className="w-full min-w-[1050px] text-left text-sm">
 
                         <thead className="bg-gradient-to-r from-indigo-50 to-violet-50 text-slate-700">
                             <tr>
@@ -901,6 +944,7 @@ const Product = () => {
                                 <th className="px-6 py-4 font-semibold">Subcategory</th>
                                 <th className="px-6 py-4 font-semibold">Brand</th>
                                 <th className="px-6 py-4 font-semibold">Stock</th>
+                                <th className="px-6 py-4 font-semibold">Featured</th>
                                 <th className="px-6 py-4 font-semibold">Status</th>
                                 <th className="px-6 py-4 text-center font-semibold">Action</th>
                             </tr>
@@ -952,6 +996,19 @@ const Product = () => {
                                             <span className="inline-flex rounded-lg bg-slate-100 px-3 py-1.5 font-semibold text-slate-700">
                                                 {item.stock}
                                             </span>
+                                        </td>
+
+                                        {/* FEATURED STATUS */}
+                                        <td className="px-6 py-4">
+                                            {item.isFeatured ? (
+                                                <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                                                    Featured
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+                                                    No
+                                                </span>
+                                            )}
                                         </td>
 
                                         {/* STATUS TOGGLE */}
@@ -1034,7 +1091,7 @@ const Product = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="8" className="px-6 py-12 text-center">
+                                    <td colSpan="9" className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center justify-center">
                                             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl">
                                                 📦

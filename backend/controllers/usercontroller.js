@@ -66,7 +66,7 @@ const userSignup = async (req, res) => {
             }
 
             const userRole = await Role.findOne({
-                name: /^user$/i,
+                name: /^customer$/i,
                 status: 'active'
             })
 
@@ -461,10 +461,12 @@ const verifyResetOTP = async (req, res) => {
 
 
 
+
 const userLogin = async (req, res) => {
     try {
         const { email, password } = req.body
 
+        // Validate input
         if (!email || !password) {
             return res.status(400).json({
                 message: 'Email and password are required',
@@ -472,29 +474,54 @@ const userLogin = async (req, res) => {
             })
         }
 
+        // Normalize email
+        const normalizedEmail = email.toLowerCase().trim()
+
+        // Find user and populate role
         const user = await User.findOne({
-            email: email.toLowerCase()
+            email: normalizedEmail
         }).populate('role')
 
-        console.log('Email:', user?.email)
-        console.log('Role:', user?.role?.name)
-        console.log('Status:', user?.status)
+        // Check user and role
+        if (!user || !user.role) {
+            return res.status(401).json({
+                message: 'Invalid email or password',
+                status: false
+            })
+        }
 
-      if (!user || user.role.name.toLowerCase() !== 'user') {
-    return res.status(401).json({
-        message: 'Invalid email or password',
-        status: false
-    })
-}
+        // Customer role validation
+        const roleName = user.role.name?.toLowerCase().trim()
 
-if (!user.isEmailVerified) {
-    return res.status(403).json({
-        message: 'Please verify your email before logging in',
-        status: false,
-        requiresEmailVerification: true
-    })
-}
-        const isMatch = await bcrypt.compare(password, user.password)
+        if (roleName !== 'customer') {
+            return res.status(401).json({
+                message: 'Invalid email or password',
+                status: false
+            })
+        }
+
+        // Email verification
+        if (!user.isEmailVerified) {
+            return res.status(403).json({
+                message: 'Please verify your email before logging in',
+                status: false,
+                requiresEmailVerification: true
+            })
+        }
+
+        // Account status
+        if (user.status !== 'active') {
+            return res.status(403).json({
+                message: 'Account is inactive or blocked',
+                status: false
+            })
+        }
+
+        // Password comparison
+        const isMatch = await bcrypt.compare(
+            password,
+            user.password
+        )
 
         if (!isMatch) {
             return res.status(401).json({
@@ -503,26 +530,27 @@ if (!user.isEmailVerified) {
             })
         }
 
-        if (user.status !== 'active') {
-            return res.status(403).json({
-                message: 'Account is inactive or blocked',
-                status: false
-            })
-        }
-
+        // Generate JWT
         const token = jwt.sign(
-            { id: user._id, role: user.role.name },
+            {
+                id: user._id,
+                role: roleName
+            },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' }
+            {
+                expiresIn: '1d'
+            }
         )
 
-         res.cookie('token', token, {
-         httpOnly: true,
-         secure: process.env.NODE_ENV === 'production',
-         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000
-  })
+        // Set cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000
+        })
 
+        // Successful login
         return res.status(200).json({
             message: 'User login successful',
             status: true,
@@ -531,13 +559,15 @@ if (!user.isEmailVerified) {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                role: user.role.name
+                role: roleName
             }
         })
 
     } catch (error) {
+        console.error('User Login Error:', error)
+
         return res.status(500).json({
-            message: error.message,
+            message: 'Internal server error',
             status: false
         })
     }
@@ -634,12 +664,12 @@ const createUser = async (req, res) => {
             ]
         });
 
-        if (existingUser) {
-            return res.status(409).json({
-                status: false,
-                message: 'Email or phone already exists'
-            });
-        }
+        // if (existingUser) {
+        //     return res.status(409).json({
+        //         status: false,
+        //         message: 'Email or phone already exists'
+        //     });
+        // }
 
         // Find role
         const userRole = await Role.findById(role);

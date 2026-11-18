@@ -54,7 +54,12 @@ const productSchema = new mongoose.Schema({
         type: String,
         enum: ['active', 'inactive'],
         default: 'active'
-    }
+    },
+
+    isFeatured: {
+    type: Boolean,
+    default: false
+},
 
 }, { timestamps: true });
 

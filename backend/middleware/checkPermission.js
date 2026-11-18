@@ -11,12 +11,14 @@ const checkPermission = (permission) => {
 
             const roleName = req.user.role?.toLowerCase().trim()
 
+            console.log(">>>>>",roleName)
             // Super Admin has all permissions
             if (roleName === 'super admin') {
                 return next()
             }
 
             const permissions = req.user.permissions || []
+             
 
             if (!permissions.includes(permission)) {
                 return res.status(403).json({

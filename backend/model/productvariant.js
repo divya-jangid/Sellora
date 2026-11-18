@@ -87,11 +87,6 @@ const productVariantSchema = new mongoose.Schema({
         default: 'active'
     },
        
-    isFeatured: {
-    type: Boolean,
-    default: false
-},
-
 }, { timestamps: true });
 
 const ProductVariant = mongoose.model('ProductVariant', productVariantSchema )

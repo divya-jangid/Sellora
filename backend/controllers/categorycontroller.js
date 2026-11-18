@@ -11,6 +11,8 @@ const createCategory = async (req, res) =>{
 
         const { name, description } = req.body
 
+       
+
         let image = '';
 
     if (req.file) {
@@ -89,7 +91,6 @@ const getAllCategories = async (req, res) => {
 
             const inventory = await Inventory.find({
                 store: storeId,
-                status: 'active',
                 availableQuantity: { $gt: 0 },
                 variant: { $ne: null }
             }).select('product variant');

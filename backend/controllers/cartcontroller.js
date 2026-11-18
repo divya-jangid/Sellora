@@ -48,6 +48,7 @@ const calculateCartTotal = async (cart) => {
 
 
 // ADD TO CART
+
 const addToCart = async (req, res) => {
     try {
         const {
@@ -58,6 +59,7 @@ const addToCart = async (req, res) => {
         } = req.body
 
         const userId = req.user.id
+        const qty = Number(quantity)
 
         if (!productId || !storeId) {
             return res.status(400).json({
@@ -66,7 +68,7 @@ const addToCart = async (req, res) => {
             })
         }
 
-        if (!Number.isInteger(quantity) || quantity < 1) {
+        if (!Number.isInteger(qty) || qty < 1) {
             return res.status(400).json({
                 message: 'Quantity must be a positive integer',
                 status: false
@@ -126,12 +128,11 @@ const addToCart = async (req, res) => {
             })
         }
 
-        // CHECK STORE INVENTORY
+        // CHECK SELECTED STORE INVENTORY
         const inventory = await Inventory.findOne({
             store: storeId,
             product: productId,
-            variant: variantId || null,
-            status: 'active'
+            variant: variantId || null
         })
 
         if (!inventory) {
@@ -141,9 +142,7 @@ const addToCart = async (req, res) => {
             })
         }
 
-        const availableStock = Number(
-            inventory.availableQuantity
-        )
+        const availableStock = Number(inventory.availableQuantity || 0)
 
         if (availableStock <= 0) {
             return res.status(400).json({
@@ -165,7 +164,7 @@ const addToCart = async (req, res) => {
             })
         }
 
-        // FIND SAME PRODUCT AND VARIANT
+        // FIND EXISTING CART ITEM
         let cartItem = await CartItem.findOne({
             cart: cart._id,
             product: productId,
@@ -176,9 +175,8 @@ const addToCart = async (req, res) => {
             ? Number(cartItem.quantity)
             : 0
 
-        const newQuantity = existingQuantity + quantity
+        const newQuantity = existingQuantity + qty
 
-        // CHECK TOTAL CART QUANTITY AGAINST AVAILABLE STOCK
         if (newQuantity > availableStock) {
             return res.status(400).json({
                 message: `Only ${availableStock} items are available in stock`,
@@ -186,6 +184,7 @@ const addToCart = async (req, res) => {
             })
         }
 
+        // UPDATE OR CREATE CART ITEM
         if (cartItem) {
             cartItem.quantity = newQuantity
             cartItem.price = price
@@ -197,13 +196,13 @@ const addToCart = async (req, res) => {
                 cart: cart._id,
                 product: productId,
                 variant: variantId || null,
-                quantity,
+                quantity: qty,
                 price,
-                totalPrice: price * quantity
+                totalPrice: price * qty
             })
         }
 
-        // CART CHANGE = REMOVE OLD COUPON
+        // REMOVE OLD COUPON AFTER CART CHANGE
         cart.discount = 0
         cart.coupon = null
 

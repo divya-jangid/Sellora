@@ -27,6 +27,7 @@ import AccountLayout from './layout/AccountLayout'
 import ChangePassword from './pages/ChangePassword'
 import Banner from './pages/Banner'
 import MyEarnings from './pages/MyEarnings'
+import Storeinventory from './pages/Storeinventory'
 
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -156,12 +157,19 @@ const App = () => {
                 <Route path="/template" element={<Template />} />
               </Route>
 
+
               {/* INVENTORY */}
               <Route
                 element={<ProtectedRoute permission="storeinventory_view" />}
               >
                 <Route path="/inventory" element={<Inventory />} />
+
+                <Route
+                  path="/inventory/store/:storeId"
+                  element={<Storeinventory />}
+                />
               </Route>
+
 
               {/* ORDERS */}
               <Route

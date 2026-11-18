@@ -166,7 +166,8 @@ const createStore = async (req, res) => {
 
 
 
-// GET ALL STORES
+// GET ALL Stores
+
 const getAllStores = async (req, res) => {
     try {
         const {
@@ -181,33 +182,36 @@ const getAllStores = async (req, res) => {
         const pageLimit = Math.max(1, Number(limit));
         const skip = (currentPage - 1) * pageLimit;
 
-        // SEARCH BY STORE NAME AND CITY
-       // SEARCH BY STORE NAME AND ADDRESS
-const filter = {};
+        // STORE MANAGER CAN ONLY SEE THEIR ASSIGNED STORE
+        const filter = {};
 
-if (search) {
-
-    filter.$or = [
-        {
-            name: {
-                $regex: search,
-                $options: 'i'
-            }
-        },
-        {
-            address: {
-                $regex: search,
-                $options: 'i'
-            }
-        },
-        {
-            code: {
-                $regex: search,
-                $options: 'i'
-            }
+        if (req.user?.role === 'store manager') {
+            filter.manager = req.user._id;
         }
-    ];
-}
+
+        // SEARCH BY STORE NAME, ADDRESS AND CODE
+        if (search) {
+            filter.$or = [
+                {
+                    name: {
+                        $regex: search,
+                        $options: 'i'
+                    }
+                },
+                {
+                    address: {
+                        $regex: search,
+                        $options: 'i'
+                    }
+                },
+                {
+                    code: {
+                        $regex: search,
+                        $options: 'i'
+                    }
+                }
+            ];
+        }
 
         // ALLOWED SORT FIELDS
         const allowedSortFields = [
@@ -256,8 +260,8 @@ if (search) {
     }
 };
 
-
 // UPDATE STORE
+
 
 const updateStore = async (req, res) => {
     try {
@@ -293,16 +297,23 @@ const updateStore = async (req, res) => {
                 });
             }
 
-            // NORMAL LOCATION
-            updateData.location = locationResult.location;
+            const latitude = Number(locationResult.location.latitude);
+            const longitude = Number(locationResult.location.longitude);
 
-            // GEOJSON LOCATION FOR $geoNear
-            updateData.geoLocation = {
+            if (
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude)
+            ) {
+                return res.status(400).json({
+                    message: 'Invalid latitude or longitude',
+                    status: false
+                });
+            }
+
+            // GEOJSON LOCATION
+            updateData.location = {
                 type: 'Point',
-                coordinates: [
-                    locationResult.location.longitude,
-                    locationResult.location.latitude
-                ]
+                coordinates: [longitude, latitude]
             };
         }
 
@@ -366,6 +377,7 @@ const updateStore = async (req, res) => {
         });
     }
 };
+
 
 
 // DELETE STORE

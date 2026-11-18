@@ -64,7 +64,6 @@ const getDashboardData = async (req, res) => {
 
                 // LOW STOCK COUNT
                 Inventory.countDocuments({
-                    status: 'active',
                     $expr: {
                         $lte: ['$availableQuantity', '$reorderLevel']
                     }
@@ -72,7 +71,6 @@ const getDashboardData = async (req, res) => {
 
                 // LOW STOCK PRODUCT DETAILS
                 Inventory.find({
-                    status: 'active',
                     $expr: {
                         $lte: ['$availableQuantity', '$reorderLevel']
                     }
@@ -154,7 +152,6 @@ const getDashboardData = async (req, res) => {
 
                 Inventory.countDocuments({
                     store: store._id,
-                    status: 'active',
                     $expr: {
                         $lte: ['$availableQuantity', '$reorderLevel']
                     }
@@ -172,7 +169,6 @@ const getDashboardData = async (req, res) => {
                 // STORE MANAGER LOW STOCK DETAILS
                 Inventory.find({
                     store: store._id,
-                    status: 'active',
                     $expr: {
                         $lte: ['$availableQuantity', '$reorderLevel']
                     }

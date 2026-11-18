@@ -21,19 +21,28 @@ const Coupon = require('../model/couponModel');
 // ======================================
 // RESERVE INVENTORY
 // ======================================
+
 const reserveInventory = async (storeId, items) => {
-    const reservedItems = [];
+    const reservedItems = []
 
     try {
         for (const item of items) {
-            const quantity = Number(item.quantity);
+            const quantity = Number(item.quantity)
 
+            if (!Number.isInteger(quantity) || quantity <= 0) {
+                const error = new Error(
+                    `Invalid quantity for ${item.productName}`
+                )
+                error.statusCode = 400
+                throw error
+            }
+
+            // ATOMIC STOCK RESERVATION
             const result = await Inventory.updateOne(
                 {
                     store: storeId,
                     product: item.product,
                     variant: item.variant || null,
-                    status: 'active',
                     availableQuantity: { $gte: quantity }
                 },
                 {
@@ -42,62 +51,77 @@ const reserveInventory = async (storeId, items) => {
                         availableQuantity: -quantity
                     }
                 }
-            );
+            )
 
             if (result.modifiedCount !== 1) {
                 const error = new Error(
                     `${item.productName} has insufficient available stock`
-                );
-                error.statusCode = 400;
-                throw error;
+                )
+                error.statusCode = 400
+                throw error
             }
 
             reservedItems.push({
                 product: item.product,
                 variant: item.variant || null,
                 quantity
-            });
+            })
         }
 
-        return reservedItems;
+        return reservedItems
 
     } catch (error) {
-        // Rollback partially reserved stock
-        for (const item of reservedItems.reverse()) {
-            await Inventory.updateOne(
-                {
-                    store: storeId,
-                    product: item.product,
-                    variant: item.variant
-                },
-                {
-                    $inc: {
-                        reservedQuantity: -item.quantity,
-                        availableQuantity: item.quantity
+
+        // ROLLBACK PARTIALLY RESERVED STOCK
+        for (const item of [...reservedItems].reverse()) {
+            try {
+                await Inventory.updateOne(
+                    {
+                        store: storeId,
+                        product: item.product,
+                        variant: item.variant
+                    },
+                    {
+                        $inc: {
+                            reservedQuantity: -item.quantity,
+                            availableQuantity: item.quantity
+                        }
                     }
-                }
-            );
+                )
+            } catch (rollbackError) {
+                console.error(
+                    'RESERVATION ROLLBACK ERROR:',
+                    rollbackError.message
+                )
+            }
         }
 
-        throw error;
+        throw error
     }
-};
-
+}
 
 // ======================================
 // DEDUCT INVENTORY AFTER DELIVERY
 // ======================================
+
 const deductDeliveredInventory = async (order) => {
     const items = await OrderItem.find({
         order: order._id
-    });
+    })
 
-    const deductedItems = [];
+    const deductedItems = []
 
     try {
         for (const item of items) {
-            const quantity = Number(item.quantity);
+            const quantity = Number(item.quantity)
 
+            if (!Number.isInteger(quantity) || quantity <= 0) {
+                throw new Error(
+                    `Invalid quantity for ${item.productName}`
+                )
+            }
+
+            // FINAL STOCK DEDUCTION ON DELIVERY
             const result = await Inventory.updateOne(
                 {
                     store: order.store,
@@ -112,113 +136,129 @@ const deductDeliveredInventory = async (order) => {
                         reservedQuantity: -quantity
                     }
                 }
-            );
+            )
 
             if (result.modifiedCount !== 1) {
                 throw new Error(
                     `Inventory deduction failed for ${item.productName}`
-                );
+                )
             }
 
             deductedItems.push({
                 product: item.product,
                 variant: item.variant || null,
                 quantity
-            });
+            })
         }
 
     } catch (error) {
-        // Restore stock if any later item fails
-        for (const item of deductedItems.reverse()) {
-            await Inventory.updateOne(
-                {
-                    store: order.store,
-                    product: item.product,
-                    variant: item.variant
-                },
-                {
-                    $inc: {
-                        quantity: item.quantity,
-                        reservedQuantity: item.quantity
+
+        // ROLLBACK PREVIOUSLY DEDUCTED ITEMS
+        for (const item of [...deductedItems].reverse()) {
+            try {
+                await Inventory.updateOne(
+                    {
+                        store: order.store,
+                        product: item.product,
+                        variant: item.variant
+                    },
+                    {
+                        $inc: {
+                            quantity: item.quantity,
+                            reservedQuantity: item.quantity
+                        }
                     }
-                }
-            );
+                )
+            } catch (rollbackError) {
+                console.error(
+                    'DELIVERY STOCK ROLLBACK ERROR:',
+                    rollbackError.message
+                )
+            }
         }
 
-        throw error;
+        throw error
     }
-};
+}
+
 
 
 // ======================================
 // PLACE ORDER
 // ======================================
+
 const placeOrder = async (req, res) => {
-    let createdOrder = null;
-    let reservedItems = [];
-    let couponUpdated = false;
+    let createdOrder = null
+    let reservedItems = []
+    let couponUpdated = false
+    let appliedCouponId = null
 
     try {
-        const userId = req.user.id;
+        const userId = req.user.id
 
         const {
             addressId,
             paymentMethod = 'COD',
             buyNow = null,
             storeId
-        } = req.body;
+        } = req.body
 
+        // VALIDATE ADDRESS
         if (!addressId || !mongoose.Types.ObjectId.isValid(addressId)) {
             return res.status(400).json({
                 message: 'Valid address ID is required',
                 status: false
-            });
+            })
         }
 
+        // VALIDATE STORE
         if (!storeId || !mongoose.Types.ObjectId.isValid(storeId)) {
             return res.status(400).json({
                 message: 'Valid store ID is required',
                 status: false
-            });
+            })
         }
 
+        // VALIDATE PAYMENT METHOD
         if (!['COD', 'online'].includes(paymentMethod)) {
             return res.status(400).json({
                 message: 'Invalid payment method',
                 status: false
-            });
+            })
         }
 
+        // CHECK ADDRESS
         const address = await Address.findOne({
             _id: addressId,
             user: userId
-        });
+        })
 
         if (!address) {
             return res.status(404).json({
                 message: 'Address not found',
                 status: false
-            });
+            })
         }
 
+        // CHECK STORE
         const store = await Store.findOne({
             _id: storeId,
             status: 'active'
-        });
+        })
 
         if (!store) {
             return res.status(404).json({
                 message: 'Selected store is not available',
                 status: false
-            });
+            })
         }
 
-        let orderItemsData = [];
-        let subtotal = 0;
-        let tax = 0;
-        let discount = 0;
-        let appliedCoupon = null;
-        let cart = null;
+        let orderItemsData = []
+        let subtotal = 0
+        let tax = 0
+        let discount = 0
+        let appliedCoupon = null
+        let cart = null
 
         // ======================================
         // BUY NOW FLOW
@@ -226,15 +266,16 @@ const placeOrder = async (req, res) => {
         if (buyNow) {
             const {
                 productId,
-                variantId = null,
-                quantity = 1
-            } = buyNow;
+                variantId = null
+            } = buyNow
 
-            if (!mongoose.Types.ObjectId.isValid(productId)) {
+            const quantity = Number(buyNow.quantity ?? 1)
+
+            if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
                 return res.status(400).json({
                     message: 'Valid product ID is required',
                     status: false
-                });
+                })
             }
 
             if (
@@ -244,72 +285,83 @@ const placeOrder = async (req, res) => {
                 return res.status(400).json({
                     message: 'Invalid variant ID',
                     status: false
-                });
+                })
             }
 
             if (!Number.isInteger(quantity) || quantity < 1) {
                 return res.status(400).json({
                     message: 'Quantity must be a positive integer',
                     status: false
-                });
+                })
             }
 
+            // CHECK PRODUCT
             const product = await Product.findOne({
                 _id: productId,
                 status: 'active'
-            });
+            })
 
             if (!product) {
                 return res.status(404).json({
                     message: 'Product not found',
                     status: false
-                });
+                })
             }
 
-            let variant = null;
-            let price = Number(product.price);
+            let variant = null
+            let price = Number(product.price)
 
+            // CHECK VARIANT
             if (variantId) {
                 variant = await ProductVariant.findOne({
                     _id: variantId,
                     product: product._id,
                     status: 'active'
-                });
+                })
 
                 if (!variant) {
                     return res.status(404).json({
                         message: 'Product variant not found',
                         status: false
-                    });
+                    })
                 }
 
-                price = Number(variant.sellingPrice);
+                price = Number(variant.sellingPrice)
             }
 
             if (!Number.isFinite(price) || price <= 0) {
                 return res.status(400).json({
                     message: 'Invalid product price',
                     status: false
-                });
+                })
             }
 
-            // Check selected store inventory
+            // CHECK SELECTED STORE INVENTORY
             const inventory = await Inventory.findOne({
                 store: store._id,
                 product: product._id,
-                variant: variant ? variant._id : null,
-                status: 'active',
-                availableQuantity: { $gte: quantity }
-            });
+                variant: variant ? variant._id : null
+            })
 
             if (!inventory) {
                 return res.status(400).json({
-                    message: 'Product is not available in selected store',
+                    message: `${product.name} is not available in selected store`,
                     status: false
-                });
+                })
             }
 
-            subtotal = Number((price * quantity).toFixed(2));
+            const availableStock = Number(
+                inventory.availableQuantity || 0
+            )
+
+            if (availableStock < quantity) {
+                return res.status(400).json({
+                    message: `${product.name} has insufficient store stock. Available: ${availableStock}`,
+                    status: false
+                })
+            }
+
+            subtotal = Number((price * quantity).toFixed(2))
 
             orderItemsData.push({
                 product: product._id,
@@ -322,7 +374,7 @@ const placeOrder = async (req, res) => {
                 discount: 0,
                 tax: 0,
                 totalPrice: subtotal
-            });
+            })
 
         } else {
 
@@ -332,43 +384,46 @@ const placeOrder = async (req, res) => {
             cart = await Cart.findOne({
                 user: userId,
                 store: store._id
-            });
+            })
 
             if (!cart) {
                 return res.status(404).json({
                     message: 'Cart not found for selected store',
                     status: false
-                });
+                })
             }
 
-            tax = Number(cart.tax || 0);
+            tax = Number(cart.tax || 0)
 
             const cartItems = await CartItem.find({
                 cart: cart._id
             })
                 .populate('product')
-                .populate('variant');
+                .populate('variant')
 
             if (!cartItems.length) {
                 return res.status(400).json({
                     message: 'Your cart is empty',
                     status: false
-                });
+                })
             }
 
-            // Validate cart items
+            // VALIDATE CART ITEMS AND INVENTORY
             for (const item of cartItems) {
+                const quantity = Number(item.quantity)
+                const price = Number(item.price)
+
                 if (
                     !item.product ||
-                    !Number.isFinite(Number(item.price)) ||
-                    Number(item.price) <= 0 ||
-                    !Number.isInteger(item.quantity) ||
-                    item.quantity <= 0
+                    !Number.isFinite(price) ||
+                    price <= 0 ||
+                    !Number.isInteger(quantity) ||
+                    quantity <= 0
                 ) {
                     return res.status(400).json({
                         message: 'Invalid product, price or quantity in cart',
                         status: false
-                    });
+                    })
                 }
 
                 if (
@@ -378,36 +433,50 @@ const placeOrder = async (req, res) => {
                     return res.status(400).json({
                         message: `${item.product.name} variant is not available`,
                         status: false
-                    });
+                    })
                 }
 
+                // CHECK INVENTORY
                 const inventory = await Inventory.findOne({
                     store: store._id,
                     product: item.product._id,
-                    variant: item.variant ? item.variant._id : null,
-                    status: 'active',
-                    availableQuantity: { $gte: item.quantity }
-                });
+                    variant: item.variant ? item.variant._id : null
+                })
 
                 if (!inventory) {
                     return res.status(400).json({
-                        message: `${item.product.name} has insufficient store stock`,
+                        message: `${item.product.name} is not available in selected store`,
                         status: false
-                    });
+                    })
+                }
+
+                const availableStock = Number(
+                    inventory.availableQuantity || 0
+                )
+
+                if (availableStock < quantity) {
+                    return res.status(400).json({
+                        message: `${item.product.name} has insufficient store stock. Available: ${availableStock}`,
+                        status: false
+                    })
                 }
             }
 
+            // CALCULATE SUBTOTAL
             subtotal = cartItems.reduce(
                 (sum, item) =>
-                    sum + Number(item.price) * item.quantity,
+                    sum +
+                    Number(item.price) * Number(item.quantity),
                 0
-            );
+            )
 
-            subtotal = Number(subtotal.toFixed(2));
+            subtotal = Number(subtotal.toFixed(2))
 
+            // ======================================
             // COUPON VALIDATION
+            // ======================================
             if (cart.coupon) {
-                appliedCoupon = await Coupon.findById(cart.coupon);
+                appliedCoupon = await Coupon.findById(cart.coupon)
 
                 if (
                     !appliedCoupon ||
@@ -416,10 +485,10 @@ const placeOrder = async (req, res) => {
                     return res.status(400).json({
                         message: 'Applied coupon is no longer available',
                         status: false
-                    });
+                    })
                 }
 
-                const now = new Date();
+                const now = new Date()
 
                 if (
                     now < appliedCoupon.startDate ||
@@ -428,7 +497,7 @@ const placeOrder = async (req, res) => {
                     return res.status(400).json({
                         message: 'Coupon has expired or is not active yet',
                         status: false
-                    });
+                    })
                 }
 
                 if (
@@ -438,29 +507,29 @@ const placeOrder = async (req, res) => {
                     return res.status(400).json({
                         message: 'Coupon usage limit reached',
                         status: false
-                    });
+                    })
                 }
 
                 if (subtotal < appliedCoupon.minimumOrderAmount) {
                     return res.status(400).json({
                         message: `Minimum order amount is ${appliedCoupon.minimumOrderAmount}`,
                         status: false
-                    });
+                    })
                 }
 
                 if (appliedCoupon.discountType === 'percentage') {
                     discount =
-                        subtotal * appliedCoupon.discountValue / 100;
+                        subtotal * appliedCoupon.discountValue / 100
 
                     if (appliedCoupon.maximumDiscount != null) {
                         discount = Math.min(
                             discount,
                             appliedCoupon.maximumDiscount
-                        );
+                        )
                     }
 
                 } else if (appliedCoupon.discountType === 'fixed') {
-                    discount = appliedCoupon.discountValue;
+                    discount = appliedCoupon.discountValue
                 }
 
                 discount = Number(
@@ -468,7 +537,7 @@ const placeOrder = async (req, res) => {
                         0,
                         Math.min(discount, subtotal)
                     ).toFixed(2)
-                );
+                )
             }
 
             orderItemsData = cartItems.map(item => ({
@@ -477,26 +546,29 @@ const placeOrder = async (req, res) => {
                 productName: item.product.name || 'Product',
                 variantName: item.variant ? item.variant.name : '',
                 sku: item.variant ? item.variant.sku : '',
-                quantity: item.quantity,
+                quantity: Number(item.quantity),
                 price: Number(item.price),
                 discount: 0,
                 tax: 0,
                 totalPrice: Number(
-                    (Number(item.price) * item.quantity).toFixed(2)
+                    (
+                        Number(item.price) *
+                        Number(item.quantity)
+                    ).toFixed(2)
                 )
-            }));
+            }))
         }
 
         // ======================================
         // FINAL AMOUNT
         // ======================================
-        const deliveryFee = subtotal >= 999 ? 0 : 30;
+        const deliveryFee = subtotal >= 999 ? 0 : 30
 
         if (!Number.isFinite(tax) || tax < 0) {
             return res.status(400).json({
                 message: 'Invalid tax amount',
                 status: false
-            });
+            })
         }
 
         const totalAmount = Number(
@@ -506,28 +578,28 @@ const placeOrder = async (req, res) => {
                 deliveryFee +
                 tax
             ).toFixed(2)
-        );
+        )
 
         if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
             return res.status(400).json({
                 message: 'Invalid order amount',
                 status: false
-            });
+            })
         }
 
         // ======================================
-        // RESERVE STOCK BEFORE ORDER CREATION
+        // RESERVE INVENTORY
         // ======================================
         reservedItems = await reserveInventory(
             store._id,
             orderItemsData
-        );
+        )
 
         // ======================================
         // CREATE ORDER
         // ======================================
         const orderNumber =
-            `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`
 
         const order = await Order.create({
             orderNumber,
@@ -544,9 +616,9 @@ const placeOrder = async (req, res) => {
             paymentStatus: 'PENDING',
             orderStatus: 'placed',
             placedAt: new Date()
-        });
+        })
 
-        createdOrder = order;
+        createdOrder = order
 
         // CREATE PAYMENT
         const payment = await Payment.create({
@@ -563,39 +635,42 @@ const placeOrder = async (req, res) => {
             status: 'PENDING',
             gatewayResponse: null,
             paidAt: null
-        });
+        })
 
         // CREATE ORDER ITEMS
         const finalOrderItems = orderItemsData.map(item => ({
             ...item,
             order: order._id
-        }));
+        }))
 
-        await OrderItem.insertMany(finalOrderItems);
+        await OrderItem.insertMany(finalOrderItems)
 
         // UPDATE COUPON COUNT
         if (appliedCoupon) {
-            await appliedCoupon.updateOne({
-                $inc: { usedCount: 1 }
-            });
+            appliedCouponId = appliedCoupon._id
 
-            couponUpdated = true;
+            await Coupon.updateOne(
+                { _id: appliedCoupon._id },
+                { $inc: { usedCount: 1 } }
+            )
+
+            couponUpdated = true
         }
 
         // CLEAR CART ONLY FOR NORMAL CHECKOUT
         if (!buyNow && cart) {
             await CartItem.deleteMany({
                 cart: cart._id
-            });
+            })
 
-            cart.subtotal = 0;
-            cart.discount = 0;
-            cart.deliveryFee = 0;
-            cart.tax = 0;
-            cart.totalAmount = 0;
-            cart.coupon = null;
+            cart.subtotal = 0
+            cart.discount = 0
+            cart.deliveryFee = 0
+            cart.tax = 0
+            cart.totalAmount = 0
+            cart.coupon = null
 
-            await cart.save();
+            await cart.save()
         }
 
         return res.status(201).json({
@@ -604,70 +679,81 @@ const placeOrder = async (req, res) => {
             data: order,
             items: finalOrderItems,
             payment
-        });
+        })
 
     } catch (error) {
-        console.error('PLACE ORDER ERROR:', error);
+        console.error('PLACE ORDER ERROR:', error)
 
-        // Rollback reserved stock
+        // ======================================
+        // ROLLBACK RESERVED STOCK
+        // ======================================
         if (reservedItems.length > 0) {
-            for (const item of reservedItems.reverse()) {
+            for (const item of [...reservedItems].reverse()) {
                 try {
                     await Inventory.updateOne(
-                        {
-                            store: req.body.storeId,
-                            product: item.product,
-                            variant: item.variant
-                        },
+                       {
+                             store: req.body.storeId,
+                              product: item.product,
+                             variant: item.variant
+                      },
                         {
                             $inc: {
                                 reservedQuantity: -item.quantity,
                                 availableQuantity: item.quantity
                             }
                         }
-                    );
+                    )
                 } catch (rollbackError) {
                     console.error(
                         'STOCK ROLLBACK ERROR:',
                         rollbackError.message
-                    );
+                    )
                 }
             }
         }
 
+        // CLEANUP PARTIALLY CREATED ORDER
         if (createdOrder) {
             try {
                 await Payment.deleteMany({
                     order: createdOrder._id
-                });
+                })
 
                 await OrderItem.deleteMany({
                     order: createdOrder._id
-                });
+                })
 
-                await Order.findByIdAndDelete(createdOrder._id);
+                await Order.findByIdAndDelete(createdOrder._id)
 
             } catch (cleanupError) {
                 console.error(
                     'ORDER CLEANUP ERROR:',
                     cleanupError.message
-                );
+                )
             }
         }
 
-        if (couponUpdated && createdOrder?.coupon) {
-            await Coupon.updateOne(
-                { _id: createdOrder.coupon },
-                { $inc: { usedCount: -1 } }
-            );
+        // ROLLBACK COUPON COUNT
+        if (couponUpdated && appliedCouponId) {
+            try {
+                await Coupon.updateOne(
+                    { _id: appliedCouponId },
+                    { $inc: { usedCount: -1 } }
+                )
+            } catch (couponError) {
+                console.error(
+                    'COUPON ROLLBACK ERROR:',
+                    couponError.message
+                )
+            }
         }
 
         return res.status(error.statusCode || 500).json({
             message: error.message || 'Failed to place order',
             status: false
-        });
+        })
     }
-};
+}
 
 
 // ======================================
@@ -945,6 +1031,7 @@ const getOrderById = async (req, res) => {
 // GET ALL ORDERS - ADMIN
 // ======================================
 
+
 const getAllOrders = async (req, res) => {
     try {
         const {
@@ -964,12 +1051,29 @@ const getAllOrders = async (req, res) => {
             .toLowerCase()
             .trim();
 
+        // DELIVERY PARTNER: ONLY ASSIGNED ORDERS
         if (
             userRole === 'delivery partner' ||
             userRole === 'delivery agent' ||
             userRole === 'deleivery agent'
         ) {
-            filter.deliveryPartner = req.user.id;
+            filter.deliveryPartner = req.user._id;
+        }
+
+        // STORE MANAGER: ONLY ASSIGNED STORE ORDERS
+        if (userRole === 'store manager') {
+            const assignedStore = await Store.findOne({
+                manager: req.user._id
+            }).select('_id');
+
+            if (!assignedStore) {
+                return res.status(403).json({
+                    message: 'No store assigned to this manager',
+                    status: false
+                });
+            }
+
+            filter.store = assignedStore._id;
         }
 
         // SEARCH
@@ -1046,6 +1150,8 @@ const getAllOrders = async (req, res) => {
         });
 
     } catch (error) {
+        console.log('GET ALL ORDERS ERROR:', error);
+
         return res.status(500).json({
             message: 'Failed to fetch orders',
             status: false,
@@ -1068,6 +1174,7 @@ const updateOrderStatus = async (req, res) => {
             'confirmed',
             'processing',
             'shipped',
+            'delivered',
             'cancelled'
         ];
 
@@ -1196,6 +1303,7 @@ const updateOrderStatus = async (req, res) => {
 // ======================================
 // ADMIN ORDER DETAILS
 // ======================================
+
 const getAdminOrderDetails = async (req, res) => {
     try {
         const { id } = req.params;
@@ -1211,6 +1319,31 @@ const getAdminOrderDetails = async (req, res) => {
                 message: 'Order not found',
                 status: false
             });
+        }
+
+        // STORE MANAGER: CHECK ASSIGNED STORE
+        if (req.user?.role === 'store manager') {
+
+            const assignedStore = await Store.findOne({
+                manager: req.user._id
+            }).select('_id');
+
+            if (!assignedStore) {
+                return res.status(403).json({
+                    message: 'No store assigned to this manager',
+                    status: false
+                });
+            }
+
+            if (
+                !order.store ||
+                String(order.store._id) !== String(assignedStore._id)
+            ) {
+                return res.status(403).json({
+                    message: 'Access denied. You cannot view another store order.',
+                    status: false
+                });
+            }
         }
 
         const items = await OrderItem.find({
@@ -1229,6 +1362,8 @@ const getAdminOrderDetails = async (req, res) => {
         });
 
     } catch (error) {
+        console.log('GET ADMIN ORDER DETAILS ERROR:', error);
+
         return res.status(500).json({
             message: 'Failed to fetch order details',
             status: false,
@@ -1236,6 +1371,7 @@ const getAdminOrderDetails = async (req, res) => {
         });
     }
 };
+
 
 
 module.exports = {

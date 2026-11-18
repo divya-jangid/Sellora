@@ -85,7 +85,6 @@ export const CartProvider = ({ children }) => {
             return res.data
 
         } catch (error) {
-
             console.log(
                 'GET CART ERROR:',
                 error.response?.data || error.message
@@ -103,11 +102,10 @@ export const CartProvider = ({ children }) => {
             })
 
             throw error
-
         } finally {
             setLoadingCart(false)
         }
-
+        
     }, [storeId])
 
 

@@ -4,12 +4,14 @@ const Cart = require('../model/cartmodel')
 const Inventory = require('../model/inventorymodel')
 
 // UPDATE CART ITEM QUANTITY
+
 const updateCartItem = async (req, res) => {
     try {
         const userId = req.user.id
-        const { quantity } = req.body
+        const quantity = Number(req.body.quantity)
         const id = req.params.id || req.params.cartItemId
 
+        // VALIDATE QUANTITY
         if (!Number.isInteger(quantity) || quantity < 1) {
             return res.status(400).json({
                 message: 'Quantity must be a positive integer',
@@ -17,6 +19,14 @@ const updateCartItem = async (req, res) => {
             })
         }
 
+        if (!id) {
+            return res.status(400).json({
+                message: 'Cart item ID is required',
+                status: false
+            })
+        }
+
+        // FIND CART ITEM
         const cartItem = await CartItem.findById(id)
 
         if (!cartItem) {
@@ -43,27 +53,41 @@ const updateCartItem = async (req, res) => {
         const inventory = await Inventory.findOne({
             store: cart.store,
             product: cartItem.product,
-            variant: cartItem.variant || null,
-            status: 'active'
+            variant: cartItem.variant || null
         })
 
-        if (!inventory || inventory.availableQuantity <= 0) {
+        if (!inventory) {
+            return res.status(404).json({
+                message: 'Product is not available in this store',
+                status: false
+            })
+        }
+
+        const availableStock = Number(
+            inventory.availableQuantity || 0
+        )
+
+        // CHECK STOCK
+        if (availableStock <= 0) {
             return res.status(400).json({
                 message: 'Product is out of stock',
                 status: false
             })
         }
 
-        // CHECK AVAILABLE QUANTITY
-        if (quantity > inventory.availableQuantity) {
+        // CHECK REQUESTED QUANTITY
+        if (quantity > availableStock) {
             return res.status(400).json({
-                message: `Only ${inventory.availableQuantity} items available`,
+                message: `Only ${availableStock} items available`,
                 status: false
             })
         }
 
+        // UPDATE CART ITEM
         cartItem.quantity = quantity
-        cartItem.totalPrice = cartItem.price * quantity
+        cartItem.totalPrice = Number(
+            (Number(cartItem.price) * quantity).toFixed(2)
+        )
 
         await cartItem.save()
 
@@ -72,9 +96,10 @@ const updateCartItem = async (req, res) => {
             cart: cart._id
         })
 
-        // RECALCULATE CART TOTAL
+        // RECALCULATE CART SUBTOTAL
         cart.subtotal = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
+            (sum, item) =>
+                sum + (Number(item.price) * Number(item.quantity)),
             0
         )
 
@@ -82,14 +107,16 @@ const updateCartItem = async (req, res) => {
         cart.discount = 0
         cart.coupon = null
 
+        // DELIVERY FEE
         cart.deliveryFee =
             items.length === 0 || cart.subtotal >= 999 ? 0 : 30
 
+        // CALCULATE TOTAL
         cart.totalAmount = Number(
             (
                 cart.subtotal +
                 cart.deliveryFee +
-                (cart.tax || 0)
+                Number(cart.tax || 0)
             ).toFixed(2)
         )
 
@@ -109,6 +136,8 @@ const updateCartItem = async (req, res) => {
         })
 
     } catch (error) {
+        console.log('UPDATE CART ITEM ERROR:', error)
+
         return res.status(500).json({
             message: error.message,
             status: false
@@ -117,13 +146,24 @@ const updateCartItem = async (req, res) => {
 }
 
 
+
 // REMOVE CART ITEM
+
 const removeCartItem = async (req, res) => {
     try {
         const userId = req.user.id
+
         const cartItemId =
             req.params.cartItemId || req.params.id
 
+        if (!cartItemId) {
+            return res.status(400).json({
+                message: 'Cart item ID is required',
+                status: false
+            })
+        }
+
+        // FIND CART ITEM
         const cartItem = await CartItem.findById(cartItemId)
 
         if (!cartItem) {
@@ -146,6 +186,7 @@ const removeCartItem = async (req, res) => {
             })
         }
 
+        // REMOVE CART ITEM
         await CartItem.findByIdAndDelete(cartItemId)
 
         // FETCH REMAINING ITEMS
@@ -153,9 +194,11 @@ const removeCartItem = async (req, res) => {
             cart: cart._id
         })
 
-        // RECALCULATE CART TOTAL
+        // RECALCULATE SUBTOTAL
         cart.subtotal = cartItems.reduce(
-            (sum, item) => sum + item.price * item.quantity,
+            (sum, item) =>
+                sum +
+                (Number(item.price) * Number(item.quantity)),
             0
         )
 
@@ -163,16 +206,18 @@ const removeCartItem = async (req, res) => {
         cart.discount = 0
         cart.coupon = null
 
+        // RECALCULATE DELIVERY FEE
         cart.deliveryFee =
             cartItems.length === 0 || cart.subtotal >= 999
                 ? 0
                 : 30
 
+        // RECALCULATE TOTAL
         cart.totalAmount = Number(
             (
                 cart.subtotal +
                 cart.deliveryFee +
-                (cart.tax || 0)
+                Number(cart.tax || 0)
             ).toFixed(2)
         )
 
@@ -192,12 +237,15 @@ const removeCartItem = async (req, res) => {
         })
 
     } catch (error) {
+        console.log('REMOVE CART ITEM ERROR:', error)
+
         return res.status(500).json({
             message: error.message,
             status: false
         })
     }
 }
+
 
 
 module.exports = {

@@ -15,7 +15,7 @@ const LIMIT = 10
 export default function CategoryPage() {
 
     const params = useParams()
-    const categorySlug = params.categorySlug || params.categoryId
+    const categorySlug = params.categoryId
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -23,7 +23,6 @@ export default function CategoryPage() {
     const subcategorySlug = searchParams.get('subcategory') || 'all'
 
     const { selectedStore, locationLoading } = useLocationContext()
-
     const storeId = selectedStore?._id
 
     const {
@@ -65,6 +64,11 @@ export default function CategoryPage() {
 
     }, [search])
 
+    // RESET PAGE WHEN FILTER CHANGES
+    useEffect(() => {
+        setPage(1)
+    }, [categorySlug, subcategorySlug, storeId, debouncedSearch, sortBy, order])
+
     // FETCH CATEGORY, SUBCATEGORY AND PRODUCTS
     useEffect(() => {
 
@@ -75,6 +79,7 @@ export default function CategoryPage() {
             if (locationLoading) return
 
             if (!storeId) {
+
                 setCategory(null)
                 setSubcategories([])
                 setProducts([])
@@ -82,6 +87,15 @@ export default function CategoryPage() {
                 setPagination(null)
                 setLoading(false)
                 setErrorMessage('Please select your location first.')
+
+                return
+            }
+
+            if (!categorySlug) {
+
+                setLoading(false)
+                setErrorMessage('Category slug is missing.')
+
                 return
             }
 
@@ -96,14 +110,20 @@ export default function CategoryPage() {
                     productRes
                 ] = await Promise.all([
 
+                    // CATEGORY API
                     axios.get(`${API}/category/public`, {
                         params: { storeId }
                     }),
 
+                    // STORE + CATEGORY WISE SUBCATEGORY API
                     axios.get(`${API}/subcategory/public`, {
-                        params: { storeId }
+                        params: {
+                            storeId,
+                            categorySlug
+                        }
                     }),
 
+                    // CATEGORY + SUBCATEGORY + STORE WISE PRODUCTS
                     axios.get(`${API}/product/public`, {
                         params: {
                             storeId,
@@ -124,10 +144,12 @@ export default function CategoryPage() {
                 ])
 
                 // CATEGORY RESPONSE
-                const categories =
-                    categoryRes.data?.data?.categories ||
+                const categoryData = categoryRes.data?.data
+
+                const categories = Array.isArray(categoryData)
+                    ? categoryData
+                    : categoryData?.categories ||
                     categoryRes.data?.categories ||
-                    categoryRes.data?.data ||
                     []
 
                 // SUBCATEGORY RESPONSE
@@ -144,18 +166,6 @@ export default function CategoryPage() {
                     productRes.data?.data ||
                     []
 
-                console.log('ALL PRODUCTS:', allProducts)
-
-                console.log(
-                    'FIRST PRODUCT:',
-                    allProducts[0]
-                )
-
-                console.log(
-                    'PRODUCT KEYS:',
-                    Object.keys(allProducts[0] || {})
-                )
-
                 if (
                     !Array.isArray(categories) ||
                     !Array.isArray(allSubcategories) ||
@@ -164,7 +174,7 @@ export default function CategoryPage() {
                     throw new Error('Invalid API response')
                 }
 
-                // FIND CATEGORY
+                // FIND CATEGORY USING SLUG
                 const selectedCategory = categories.find(
                     item => String(item.slug) === String(categorySlug)
                 )
@@ -172,27 +182,21 @@ export default function CategoryPage() {
                 if (!selectedCategory) {
 
                     if (isMounted) {
+
                         setCategory(null)
                         setSubcategories([])
                         setProducts([])
                         setVariants([])
                         setPagination(null)
+
+                        setErrorMessage('Category not found.')
+
                     }
 
                     return
                 }
 
-                const categoryId = String(selectedCategory._id)
-
-                // CATEGORY SUBCATEGORIES
-                const categorySubcategories = allSubcategories.filter(item => {
-
-                    const id = item.category?._id || item.category
-
-                    return String(id) === categoryId
-                })
-
-                // ALL ACTIVE VARIANTS
+                // GET ACTIVE VARIANTS
                 const categoryVariants = allProducts.flatMap(product => {
 
                     return (product.variants || [])
@@ -207,13 +211,17 @@ export default function CategoryPage() {
                 if (isMounted) {
 
                     setCategory(selectedCategory)
-                    setSubcategories(categorySubcategories)
+
+                    // BACKEND ALREADY FILTERS BY STORE + CATEGORY
+                    setSubcategories(allSubcategories)
+
                     setProducts(allProducts)
                     setVariants(categoryVariants)
 
                     setPagination(
                         productRes.data?.pagination || null
                     )
+
                 }
 
             } catch (error) {
@@ -234,6 +242,7 @@ export default function CategoryPage() {
                         error.message ||
                         'Unable to load category.'
                     )
+
                 }
 
             } finally {
@@ -241,15 +250,12 @@ export default function CategoryPage() {
                 if (isMounted) {
                     setLoading(false)
                 }
+
             }
+
         }
 
-        if (categorySlug) {
-            getCategoryData()
-        } else {
-            setLoading(false)
-            setErrorMessage('Category slug is missing.')
-        }
+        getCategoryData()
 
         return () => {
             isMounted = false
@@ -266,19 +272,23 @@ export default function CategoryPage() {
         order
     ])
 
-    // CHANGE SUBCATEGORY
-    const handleSubcategoryChange = item => {
+    // CHANGE SUBCATEGORY USING SLUG
+    const handleSubcategoryChange = slug => {
 
         setPage(1)
 
-        if (item.slug === 'all') {
+        if (slug === 'all') {
 
             router.push(`/category/${categorySlug}`)
 
         } else {
 
-            router.push(`/subcategory/${item._id}`)
+            router.push(
+                `/category/${categorySlug}?subcategory=${encodeURIComponent(slug)}`
+            )
+
         }
+
     }
 
     // SELECTED SUBCATEGORY
@@ -300,6 +310,7 @@ export default function CategoryPage() {
         setSortBy(field)
         setOrder(direction)
         setPage(1)
+
     }
 
     // PAGINATION
@@ -318,6 +329,7 @@ export default function CategoryPage() {
             top: 0,
             behavior: 'smooth'
         })
+
     }
 
     // GET PRODUCT VARIANTS
@@ -328,7 +340,9 @@ export default function CategoryPage() {
             const id = variant.product?._id || variant.product
 
             return String(id) === String(productId)
+
         })
+
     }
 
     // CHECK VARIANT STOCK
@@ -355,6 +369,7 @@ export default function CategoryPage() {
             return Number(a.sellingPrice) - Number(b.sellingPrice)
 
         })[0]
+
     }
 
     // FIND CART ITEM
@@ -372,7 +387,9 @@ export default function CategoryPage() {
                 String(cartProductId) === String(productId) &&
                 String(cartVariantId) === String(variantId)
             )
+
         })
+
     }
 
     // ADD TO CART
@@ -406,7 +423,9 @@ export default function CategoryPage() {
                 error.response?.data?.message ||
                 'Unable to add product to cart.'
             )
+
         }
+
     }
 
     // BUY NOW
@@ -425,6 +444,7 @@ export default function CategoryPage() {
             }
 
             const buyNowData = {
+
                 productId: product._id,
                 variantId: variant._id,
                 quantity: 1,
@@ -445,6 +465,7 @@ export default function CategoryPage() {
                     mrp: variant.mrp,
                     images: variant.images
                 }
+
             }
 
             sessionStorage.setItem(
@@ -458,7 +479,9 @@ export default function CategoryPage() {
 
             console.log('BUY NOW ERROR:', error)
             toast.error('Unable to proceed to checkout.')
+
         }
+
     }
 
     // INCREASE QUANTITY
@@ -475,7 +498,9 @@ export default function CategoryPage() {
 
             console.log('INCREASE ERROR:', error)
             toast.error('Unable to update quantity.')
+
         }
+
     }
 
     // DECREASE QUANTITY
@@ -493,13 +518,16 @@ export default function CategoryPage() {
                     cartItem._id,
                     cartItem.quantity - 1
                 )
+
             }
 
         } catch (error) {
 
             console.log('DECREASE ERROR:', error)
             toast.error('Unable to update quantity.')
+
         }
+
     }
 
     // CHECK WISHLIST
@@ -510,7 +538,9 @@ export default function CategoryPage() {
             const id = item.product?._id || item.product
 
             return String(id) === String(productId)
+
         })
+
     }
 
     // ADD / REMOVE WISHLIST
@@ -523,6 +553,7 @@ export default function CategoryPage() {
                 const id = item.product?._id || item.product
 
                 return String(id) === String(productId)
+
             })
 
             if (wishlistItem) {
@@ -534,6 +565,7 @@ export default function CategoryPage() {
 
                 await addToWishlist(productId)
                 toast.success('Added to wishlist')
+
             }
 
         } catch (error) {
@@ -544,7 +576,9 @@ export default function CategoryPage() {
                 error.response?.data?.message ||
                 'Unable to update wishlist.'
             )
+
         }
+
     }
 
     // FILTERED PRODUCTS
@@ -589,6 +623,7 @@ export default function CategoryPage() {
 
             </main>
         )
+
     }
 
     // LOADING
@@ -613,6 +648,7 @@ export default function CategoryPage() {
 
             </main>
         )
+
     }
 
     // API ERROR
@@ -646,6 +682,7 @@ export default function CategoryPage() {
 
             </main>
         )
+
     }
 
     // CATEGORY NOT FOUND
@@ -679,6 +716,7 @@ export default function CategoryPage() {
 
             </main>
         )
+
     }
 
     // INVALID SUBCATEGORY
@@ -708,6 +746,7 @@ export default function CategoryPage() {
 
             </main>
         )
+
     }
 
     return (
@@ -728,10 +767,14 @@ export default function CategoryPage() {
 
                     <span>/</span>
 
-                    <span className="text-purple-700">
+                    <Link
+                        href={`/category/${category.slug}`}
+                        className="text-purple-700 transition hover:text-purple-900 hover:underline"
+                    >
                         {category.name}
-                    </span>
+                    </Link>
 
+                    
                     {subcategorySlug !== 'all' && (
                         <>
                             <span>/</span>
@@ -743,99 +786,97 @@ export default function CategoryPage() {
 
                 </div>
 
-                {/* SUBCATEGORY FILTER */}
-                <section className="mb-8">
+                {/* SUBCATEGORY NAVIGATION */}
+                {subcategorySlug === 'all' ? (
+                    <section className="mb-8">
 
-                    <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+                        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
 
-                        <div>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 sm:text-xl">
+                                    Shop by Subcategory
+                                </h2>
+                                <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+                                    Explore different collections
+                                </p>
+                            </div>
 
-                            <h2 className="text-lg font-bold text-gray-900 sm:text-xl">
-                                Shop by Subcategory
-                            </h2>
-
-                            <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-                                Explore different collections
-                            </p>
+                            <span className="rounded-full border border-purple-100 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm">
+                                {subcategories.length} Collections
+                            </span>
 
                         </div>
 
-                        <span className="rounded-full border border-purple-100 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm">
-                            {subcategories.length} Collections
-                        </span>
+                        <div className="flex gap-4 overflow-x-auto pb-4">
 
-                    </div>
-
-                    <div className="flex gap-4 overflow-x-auto pb-4">
-
-                        {/* ALL */}
-                        <button
-                            onClick={() => handleSubcategoryChange('all')}
-                            className="group flex w-24 shrink-0 flex-col items-center sm:w-28"
-                        >
-
-                            <div className={`h-20 w-20 rounded-full border-[3px] p-1 transition sm:h-24 sm:w-24 ${subcategorySlug === 'all'
-                                    ? 'border-purple-600 bg-purple-100 shadow-lg shadow-purple-100'
-                                    : 'border-transparent bg-white shadow-sm group-hover:border-purple-200'
-                                }`}>
-
-                                <div className="flex h-full items-center justify-center rounded-full bg-purple-50 text-3xl transition group-hover:bg-purple-100">
-                                    🛍️
-                                </div>
-
-                            </div>
-
-                            <span className={`mt-2 text-xs font-bold sm:text-sm ${subcategorySlug === 'all'
-                                    ? 'text-purple-700'
-                                    : 'text-gray-600'
-                                }`}>
-                                All Products
-                            </span>
-
-                        </button>
-
-                        {/* SUBCATEGORIES */}
-                        {subcategories.map(item => (
-
+                            {/* ALL PRODUCTS */}
                             <button
-                                key={item._id}
-                                onClick={() => handleSubcategoryChange(item)}
+                                onClick={() => handleSubcategoryChange('all')}
                                 className="group flex w-24 shrink-0 flex-col items-center sm:w-28"
                             >
-
-                                <div className={`h-20 w-20 rounded-full border-[3px] p-1 transition sm:h-24 sm:w-24 ${subcategorySlug === item.slug
-                                        ? 'border-purple-600 bg-purple-100 shadow-lg shadow-purple-100'
-                                        : 'border-transparent bg-white shadow-sm group-hover:border-purple-200'
-                                    }`}>
-
-                                    <img
-                                        src={item.image || '/placeholder.png'}
-                                        alt={item.name}
-                                        loading="lazy"
-                                        className="h-full w-full rounded-full bg-purple-50 object-cover"
-                                    />
-
+                                <div className="h-20 w-20 rounded-full border-[3px] border-purple-600 bg-purple-100 p-1 shadow-lg shadow-purple-100 transition sm:h-24 sm:w-24">
+                                    <div className="flex h-full items-center justify-center rounded-full bg-purple-50 text-3xl transition group-hover:bg-purple-100">
+                                        🛍️
+                                    </div>
                                 </div>
-
-                                <span className={`mt-2 line-clamp-2 text-center text-xs font-bold sm:text-sm ${subcategorySlug === item.slug
-                                        ? 'text-purple-700'
-                                        : 'text-gray-600'
-                                    }`}>
-                                    {item.name}
+                                <span className="mt-2 text-xs font-bold text-purple-700 sm:text-sm">
+                                    All Products
                                 </span>
-
                             </button>
 
-                        ))}
+                            {/* SUBCATEGORIES */}
+                            {subcategories.map(item => (
+                                <button
+                                    key={item._id}
+                                    onClick={() => handleSubcategoryChange(item.slug)}
+                                    className="group flex w-24 shrink-0 flex-col items-center sm:w-28"
+                                >
+                                    <div className="h-20 w-20 rounded-full border-[3px] border-transparent bg-white p-1 shadow-sm transition group-hover:border-purple-300 sm:h-24 sm:w-24">
+                                        <img
+                                            src={item.image || '/placeholder.png'}
+                                            alt={item.name}
+                                            loading="lazy"
+                                            className="h-full w-full rounded-full bg-purple-50 object-cover"
+                                        />
+                                    </div>
+                                    <span className="mt-2 line-clamp-2 text-center text-xs font-bold text-gray-600 transition group-hover:text-purple-700 sm:text-sm">
+                                        {item.name}
+                                    </span>
+                                </button>
+                            ))}
 
-                    </div>
+                        </div>
+                    </section>
+                ) : (
+                    <section className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-purple-100 bg-white p-4 shadow-sm sm:p-5">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl">
+                                🛍️
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-500">
+                                    Browsing subcategory
+                                </p>
+                                <h2 className="truncate text-lg font-extrabold text-gray-900 sm:text-xl">
+                                    {selectedSubcategory?.name}
+                                </h2>
+                            </div>
+                        </div>
 
-                </section>
+                        <button
+                            type="button"
+                            onClick={() => handleSubcategoryChange('all')}
+                            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-bold text-purple-700 transition hover:border-purple-600 hover:bg-purple-600 hover:text-white"
+                        >
+                            <span aria-hidden="true">←</span>
+                            Back to {category.name}
+                        </button>
+                    </section>
+                )}
 
                 {/* PRODUCTS SECTION */}
                 <section>
 
-                    {/* SIDEBAR + PRODUCTS */}
                     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
 
                         {/* LEFT SIDEBAR */}
@@ -1121,7 +1162,6 @@ export default function CategoryPage() {
 
                                                         <>
 
-                                                            {/* PRODUCT PRICE + VARIANT */}
                                                             {variant ? (
 
                                                                 <div className="mt-2">
@@ -1289,8 +1329,8 @@ export default function CategoryPage() {
                                                                     onClick={() => handleBuyNow(product, variant)}
                                                                     disabled={!inStock}
                                                                     className={`mt-2 w-full rounded-xl py-2.5 text-[10px] font-extrabold transition sm:text-xs ${!inStock
-                                                                            ? 'cursor-not-allowed bg-gray-200 text-gray-400'
-                                                                            : 'bg-purple-600 text-white hover:bg-purple-700'
+                                                                        ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                                                                        : 'bg-purple-600 text-white hover:bg-purple-700'
                                                                         }`}
                                                                 >
                                                                     BUY NOW
@@ -1307,6 +1347,7 @@ export default function CategoryPage() {
                                             </div>
 
                                         )
+
                                     })}
 
                                 </div>
@@ -1338,8 +1379,8 @@ export default function CategoryPage() {
                                             disabled={loading}
                                             onClick={() => changePage(pageNumber)}
                                             className={`h-10 min-w-10 rounded-xl px-3 text-xs font-bold transition sm:text-sm ${page === pageNumber
-                                                    ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
-                                                    : 'border border-purple-200 bg-white text-purple-700 hover:border-purple-400 hover:bg-purple-50'
+                                                ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
+                                                : 'border border-purple-200 bg-white text-purple-700 hover:border-purple-400 hover:bg-purple-50'
                                                 }`}
                                         >
                                             {pageNumber}

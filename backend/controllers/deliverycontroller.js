@@ -9,6 +9,7 @@ const Inventory = require('../model/inventorymodel');
 
 
 // Deduct Inventory After Successful Delivery
+
 const deductDeliveredInventory = async (order) => {
     const orderItems = await OrderItem.find({
         order: order._id
@@ -32,7 +33,6 @@ const deductDeliveredInventory = async (order) => {
                     store: order.store,
                     product: item.product,
                     variant: item.variant || null,
-                    status: 'active',
                     quantity: { $gte: item.quantity },
                     reservedQuantity: { $gte: item.quantity }
                 },
@@ -47,7 +47,7 @@ const deductDeliveredInventory = async (order) => {
 
             if (!inventory) {
                 throw new Error(
-                    `Inventory deduction failed for product ${item.product}`
+                    `Inventory deduction failed for product ${item.product}, variant ${item.variant}, quantity ${item.quantity}. Check store, product, variant and reserved stock.`
                 );
             }
 

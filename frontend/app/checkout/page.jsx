@@ -45,7 +45,6 @@ const inputClass = "w-full rounded-xl border border-purple-100 bg-[#faf8ff] px-4
 const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
 
 export default function Checkout() {
-
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -101,7 +100,7 @@ export default function Checkout() {
     }, [storeId])
 
     // FETCH ADDRESSES
-    const fetchAddresses = async () => {
+    const fetchAddresses = useCallback(async () => {
         const res = await axios.get(
             `${API}/address/get`,
             { withCredentials: true }
@@ -112,13 +111,12 @@ export default function Checkout() {
         setAddresses(addressData)
 
         return addressData
-    }
+    }, [])
 
     // LOAD CHECKOUT DATA
     const loadCheckout = useCallback(async () => {
         setLoading(true)
         setError('')
-
         setBuyNowProduct(null)
         setCart(null)
 
@@ -127,6 +125,7 @@ export default function Checkout() {
                 throw new Error('Please select your location first.')
             }
 
+            // BUY NOW CHECKOUT
             if (isBuyNow) {
                 const savedBuyNow = sessionStorage.getItem('buyNowProduct')
 
@@ -136,13 +135,13 @@ export default function Checkout() {
 
                 const parsed = JSON.parse(savedBuyNow)
 
-                if (!parsed.productId || !parsed.variantId) {
+                if (!parsed.productId) {
                     throw new Error('Invalid Buy Now product data.')
                 }
 
                 setBuyNowProduct(parsed)
-
             } else {
+                // NORMAL CART CHECKOUT
                 const cartData = await refreshCart()
 
                 setCart({
@@ -151,6 +150,7 @@ export default function Checkout() {
                 })
             }
 
+            // FETCH USER ADDRESSES
             const addressData = await fetchAddresses()
 
             if (addressData.length > 0) {
@@ -169,16 +169,34 @@ export default function Checkout() {
             }
 
         } catch (err) {
+            console.log('CHECKOUT ERROR:', {
+                status: err.response?.status,
+                data: err.response?.data,
+                message: err.message
+            })
+
+            if (err.response?.status === 401) {
+                window.dispatchEvent(
+                    new Event('open-login-modal')
+                )
+
+                router.replace('/')
+                return
+            }
+
             setError(
                 err.response?.data?.message ||
                 err.message ||
                 'Checkout load nahi hua.'
             )
+
         } finally {
             setLoading(false)
         }
-    }, [isBuyNow, refreshCart, storeId])
 
+    }, [isBuyNow, refreshCart, fetchAddresses, storeId, router])
+
+    // LOAD CHECKOUT ON PAGE OPEN
     useEffect(() => {
         loadCheckout()
     }, [loadCheckout])
@@ -236,7 +254,6 @@ export default function Checkout() {
 
     // DELETE ADDRESS
     const handleDeleteAddress = async (addressId) => {
-
         setError('')
         setDeletingAddress(addressId)
 
@@ -462,7 +479,7 @@ export default function Checkout() {
         ? (
             buyNowProduct
                 ? [{
-                    _id: buyNowProduct.variantId,
+                    _id: buyNowProduct.variantId || buyNowProduct.productId,
                     product: buyNowProduct.product,
                     variant: buyNowProduct.variant,
                     quantity: buyNowQuantity,
@@ -941,7 +958,6 @@ export default function Checkout() {
                                     className="overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm"
                                 >
 
-                                    {/* FORM HEADER */}
                                     <div className="flex items-center gap-3 border-b border-purple-100 bg-purple-50/70 px-4 py-4 sm:px-6">
 
                                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-xl">
@@ -1120,7 +1136,6 @@ export default function Checkout() {
 
                                         </div>
 
-                                        {/* CANCEL + SAVE ADDRESS BUTTONS */}
                                         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 
                                             {addresses.length > 0 && (

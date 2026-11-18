@@ -5,7 +5,7 @@ const {signup, login, logout, getMyProfile, updateMyProfile, changePassword } = 
 const adminAuth = require('../middleware/adminAuth')
 
 router.post('/signup',signup)
-router.post('/login',login)
+router.post('/login', login)
 router.post('/logout', logout)
 router.get('/my-profile', adminAuth, getMyProfile)
 router.put('/my-profile', adminAuth, updateMyProfile)

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
@@ -58,8 +59,7 @@ const Productvariant = () => {
             width: '',
             height: ''
         },
-        images: '',
-        isFeatured: false
+        images: ''
     }
 
     const [form, setForm] = useState(initialForm)
@@ -214,8 +214,7 @@ const Productvariant = () => {
                 width: selectedVariant.dimensions?.width ?? '',
                 height: selectedVariant.dimensions?.height ?? ''
             },
-            images: imageUrl,
-            isFeatured: selectedVariant.isFeatured ?? false
+            images: imageUrl
         })
 
         setImageFile(null)
@@ -464,7 +463,6 @@ const Productvariant = () => {
             formData.append('discountPercentage', form.discountPercentage || 0)
             formData.append('weight', form.weight || 0)
             formData.append('dimensions', JSON.stringify(form.dimensions))
-            formData.append('isFeatured', String(form.isFeatured))
 
             if (imageFile) {
                 formData.append('images', imageFile)
@@ -797,32 +795,6 @@ const Productvariant = () => {
                                 />
                             </div>
 
-                            {/* FEATURED VARIANT */}
-                            <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-3 sm:p-4">
-                                <label className="flex cursor-pointer items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        name="isFeatured"
-                                        checked={form.isFeatured}
-                                        onChange={(e) =>
-                                            setForm((prev) => ({
-                                                ...prev,
-                                                isFeatured: e.target.checked
-                                            }))
-                                        }
-                                        className="h-5 w-5 accent-indigo-600"
-                                    />
-                                    <div>
-                                        <p className="text-sm font-semibold text-slate-800">
-                                            Featured Variant
-                                        </p>
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            Show this variant in Featured Products section.
-                                        </p>
-                                    </div>
-                                </label>
-                            </div>
-
                             <div className="mb-4">
                                 <label className="mb-2 block text-sm font-medium text-slate-700">
                                     Weight
@@ -990,13 +962,6 @@ const Productvariant = () => {
                             </p>
 
                             <p>
-                                <strong>Featured:</strong>{' '}
-                                <span className={viewVariant.isFeatured ? 'text-green-600' : 'text-slate-500'}>
-                                    {viewVariant.isFeatured ? 'Yes' : 'No'}
-                                </span>
-                            </p>
-
-                            <p>
                                 <strong>Weight:</strong> {viewVariant.weight ?? '-'}
                             </p>
 
@@ -1056,7 +1021,6 @@ const Productvariant = () => {
                                     'MRP',
                                     'Selling Price',
                                     'Discount',
-                                    'Featured',
                                     'Weight',
                                     'Image',
                                     'Status',
@@ -1114,16 +1078,6 @@ const Productvariant = () => {
                                             <td className="px-4 py-4 sm:px-5">
                                                 <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
                                                     {item.discountPercentage || 0}%
-                                                </span>
-                                            </td>
-
-                                            <td className="px-4 py-4 sm:px-5">
-                                                <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                                    item.isFeatured
-                                                        ? 'bg-indigo-100 text-indigo-700'
-                                                        : 'bg-slate-100 text-slate-500'
-                                                }`}>
-                                                    {item.isFeatured ? 'Yes' : 'No'}
                                                 </span>
                                             </td>
 
@@ -1220,7 +1174,7 @@ const Productvariant = () => {
                             ) : (
                                 <tr>
                                     <td
-                                        colSpan="12"
+                                        colSpan="11"
                                         className="px-6 py-10 text-center text-sm text-slate-500"
                                     >
                                         No product variants found.

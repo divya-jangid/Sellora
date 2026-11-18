@@ -31,22 +31,25 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Logout
-    const logout = async () => {
-        try {
-            await axios.post(
-                'http://localhost:8000/user/logout',
-                {},
-                { withCredentials: true }
-            )
+   const logout = async () => {
+    try {
+        const res = await axios.post(
+            'http://localhost:8000/admin/logout',
+            {},
+            { withCredentials: true }
+        )
 
-        toast.success('Logout Successfully')
-
+        if (res.data.status) {
+            toast.success('Logout Successfully')
             setUser(null)
-
-        } catch (error) {
-            console.log(error)
         }
+
+    } catch (error) {
+        toast.error(
+            error.response?.data?.message || 'Logout failed'
+        )
     }
+}
 
     useEffect(() => {
         checkUser()

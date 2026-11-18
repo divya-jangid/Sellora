@@ -11,8 +11,6 @@ import { useLocationContext } from '@/context/LocationContext'
 export default function ProductDetailPage() {
     const params = useParams()
     const productSlug = params?.productId
-
-    console.log('PRODUCT SLUG:', productSlug)
     const router = useRouter()
 
     const { selectedStore } = useLocationContext()
@@ -41,9 +39,6 @@ export default function ProductDetailPage() {
     useEffect(() => {
         let isMounted = true
 
-        console.log('CURRENT URL:', window.location.pathname)
-        console.log('PARAMS:', params)
-
         const getProduct = async () => {
             try {
                 if (!storeId || !productSlug) return
@@ -57,7 +52,7 @@ export default function ProductDetailPage() {
                     String(productSlug)
                 )
 
-                const params = {
+                const queryParams = {
                     storeId,
                     ...(isMongoId
                         ? { productId: productSlug }
@@ -66,14 +61,14 @@ export default function ProductDetailPage() {
 
                 const res = await axios.get(
                     'http://localhost:8000/product/public',
-                    { params }
+                    { params: queryParams }
                 )
 
                 let selectedProduct = res.data?.data
 
                 if (Array.isArray(selectedProduct)) {
                     selectedProduct = selectedProduct.find(
-                        (item) =>
+                        item =>
                             String(item._id) === String(productSlug) ||
                             item.slug === productSlug
                     )
@@ -87,10 +82,9 @@ export default function ProductDetailPage() {
                     return
                 }
 
-                // Only active variants with available stock
                 const availableVariants = (
                     selectedProduct.variants || []
-                ).filter((variant) =>
+                ).filter(variant =>
                     variant.status === 'active' &&
                     Number(variant.availableQuantity) > 0
                 )
@@ -115,6 +109,7 @@ export default function ProductDetailPage() {
                     setVariants([])
                     setSelectedVariant(null)
                 }
+
             } finally {
                 if (isMounted) {
                     setLoading(false)
@@ -133,7 +128,7 @@ export default function ProductDetailPage() {
     const hasVariants = Boolean(product?.variants?.length)
 
     // FIND CART ITEM
-    const cartItem = cartItems.find((item) => {
+    const cartItem = cartItems.find(item => {
         const productIdInCart =
             typeof item.product === 'object'
                 ? item.product?._id
@@ -153,7 +148,7 @@ export default function ProductDetailPage() {
 
     const quantity = Number(cartItem?.quantity || 0)
 
-    // CURRENT AVAILABLE STOCK FROM STORE INVENTORY
+    // CURRENT AVAILABLE STOCK
     const currentStock = Number(
         selectedVariant?.availableQuantity ??
         product?.availableQuantity ??
@@ -161,7 +156,7 @@ export default function ProductDetailPage() {
     )
 
     // FIND WISHLIST ITEM
-    const wishlistItem = wishlistItems.find((item) => {
+    const wishlistItem = wishlistItems.find(item => {
         const id =
             typeof item.product === 'object'
                 ? item.product?._id
@@ -204,6 +199,7 @@ export default function ProductDetailPage() {
                     'Unable to update wishlist'
                 )
             }
+
         } finally {
             setWishlistLoading(false)
         }
@@ -249,21 +245,39 @@ export default function ProductDetailPage() {
                     'Unable to add product to cart'
                 )
             }
+
         } finally {
             setAdding(false)
         }
     }
 
     // BUY NOW - DOES NOT ADD PRODUCT TO CART
-    const handleBuyNow = () => {
-        if (currentStock <= 0) {
-            toast.error('Product is out of stock!')
-            return
-        }
+    const handleBuyNow = async () => {
+    if (currentStock <= 0) {
+        toast.error('Product is out of stock!')
+        return
+    }
 
-        if (hasVariants && !selectedVariant) {
-            toast.error('Please select an available variant!')
-            return
+    if (hasVariants && !selectedVariant) {
+        toast.error('Please select an available variant!')
+        return
+    }
+
+    // Purana Buy Now data clear karo
+    sessionStorage.removeItem('buyNowProduct')
+
+    try {
+        // Login verify
+        const response = await axios.get(
+            'http://localhost:8000/address/get',
+            {
+                withCredentials: true
+            }
+        )
+
+        // Verification successful nahi hui toh stop
+        if (!response.data?.status) {
+            throw new Error('Please login first')
         }
 
         const buyNowData = {
@@ -297,10 +311,27 @@ export default function ProductDetailPage() {
         )
 
         router.push('/checkout?mode=buy-now')
+
+    } catch (error) {
+        sessionStorage.removeItem('buyNowProduct')
+
+        if (error.response?.status === 401) {
+            window.dispatchEvent(
+                new Event('open-login-modal')
+            )
+            return
+        }
+
+        toast.error(
+            error.response?.data?.message ||
+            error.message ||
+            'Unable to verify login. Please try again.'
+        )
     }
+}
 
     // UPDATE CART QUANTITY
-    const updateQuantity = async (newQuantity) => {
+    const updateQuantity = async newQuantity => {
         if (!cartItem?._id) return
 
         if (newQuantity > currentStock) {
@@ -329,6 +360,7 @@ export default function ProductDetailPage() {
                 error.response?.data?.message ||
                 'Unable to update quantity'
             )
+
         } finally {
             setUpdating(false)
         }
@@ -420,7 +452,9 @@ export default function ProductDetailPage() {
                     >
                         Home
                     </button>
+
                     <span>/</span>
+
                     <span className="font-medium text-purple-700">
                         Product Details
                     </span>
@@ -530,7 +564,7 @@ export default function ProductDetailPage() {
 
                                 {variants.length > 0 ? (
                                     <div className="flex flex-wrap gap-3">
-                                        {variants.map((variant) => (
+                                        {variants.map(variant => (
                                             <button
                                                 key={variant._id}
                                                 type="button"
@@ -661,7 +695,6 @@ export default function ProductDetailPage() {
                                 ← Continue Shopping
                             </button>
                         </div>
-
                     </div>
                 </div>
 
@@ -711,7 +744,6 @@ export default function ProductDetailPage() {
                     </div>
 
                 </div>
-
             </div>
         </main>
     )

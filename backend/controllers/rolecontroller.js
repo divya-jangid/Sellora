@@ -7,21 +7,30 @@ const createRole = async ( req, res ) =>{
       
       console.log('bodyyy',req.body)
 
+      console.log(req.body)
+
       if(!name){
         return res.status(400).json({
             message:'role is required',
             status:false
         })
       }
+
+      console.log(name)
+
     const savedRole = await Role.create({
         name,
        permissions
     })
 
+    await savedRole.save()
+    
+    console.log('savedroleee',savedRole)
+
     return res.status(201).json({
         message:'role created successfully',
         status:true,
-        data:savedRole
+        data:savedRole  
     })
 
     }

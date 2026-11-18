@@ -47,7 +47,6 @@ const bannerRoute = require('./routes/bannerRoute');
 
 
 
-
 app.use('/dashboard', dashboardRoutes)
 app.use('/admin',adminRoute)
 app.use('/user',userRoute)

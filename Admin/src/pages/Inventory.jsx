@@ -1,38 +1,33 @@
+
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
-import {
-    LuEye,
-    LuSquarePen,
-    LuTrash2
-} from "react-icons/lu";
+import { useNavigate } from 'react-router-dom'
 
 function Inventory() {
-    const [inventory, setInventory] = useState([])
-    const [stores, setStores] = useState([])
-    const [products, setProducts] = useState([])
-    const [variants, setVariants] = useState([])
+    const navigate = useNavigate()
 
-    const [showForm, setShowForm] = useState(false)
-    const [editId, setEditId] = useState(null)
-
-    const [showView, setShowView] = useState(false)
-    const [viewItem, setViewItem] = useState(null)
-
-    // SEARCH, SORT AND PAGINATION
+    // INVENTORY LIST
+    const [inventoryStores, setInventoryStores] = useState([])
     const [search, setSearch] = useState('')
     const [sortBy, setSortBy] = useState('createdAt')
     const [order, setOrder] = useState('desc')
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
-    const [totalInventory, setTotalInventory] = useState(0)
-    const limit = 10
+    const [totalStores, setTotalStores] = useState(0)
 
     // PERMISSIONS
     const [roleName, setRoleName] = useState('')
     const [permissions, setPermissions] = useState([])
     const [authLoading, setAuthLoading] = useState(true)
     const [accessDenied, setAccessDenied] = useState(false)
+
+    // FORM DATA
+    const [stores, setStores] = useState([])
+    const [products, setProducts] = useState([])
+    const [variants, setVariants] = useState([])
+    const [showForm, setShowForm] = useState(false)
+    const [saving, setSaving] = useState(false)
 
     const initialForm = {
         store: '',
@@ -41,10 +36,12 @@ function Inventory() {
         quantity: '',
         reservedQuantity: '',
         reorderLevel: '',
-        maxStockLevel: '',
+        maxStockLevel: ''
     }
 
     const [form, setForm] = useState(initialForm)
+
+    const limit = 10
 
     // PERMISSION CHECK
     const hasPermission = (permission) => {
@@ -54,7 +51,6 @@ function Inventory() {
 
     const canView = hasPermission('storeinventory_view')
     const canCreate = hasPermission('storeinventory_create')
-    const canEdit = hasPermission('storeinventory_edit')
 
     // CHECK USER
     const checkUser = async () => {
@@ -67,15 +63,11 @@ function Inventory() {
             const user = res.data.user
 
             const userRole = (
-                user?.roleName ||
-                user?.role?.name ||
-                ''
+                user?.roleName || user?.role?.name || ''
             ).toLowerCase().trim()
 
             const userPermissions =
-                user?.permissions ||
-                user?.role?.permissions ||
-                []
+                user?.permissions || user?.role?.permissions || []
 
             setRoleName(userRole)
             setPermissions(userPermissions)
@@ -93,8 +85,8 @@ function Inventory() {
         }
     }
 
-    // GET INVENTORY
-    const getInventory = async () => {
+    // GET INVENTORY STORES
+    const getStoresInventory = async () => {
         try {
             const res = await axios.get(
                 'http://localhost:8000/inventory/get-all',
@@ -110,15 +102,9 @@ function Inventory() {
                 }
             )
 
-            setInventory(res.data.inventory || [])
-
-            setTotalInventory(
-                res.data.pagination?.totalInventory || 0
-            )
-
-            setTotalPages(
-                res.data.pagination?.totalPages || 1
-            )
+            setInventoryStores(res.data.stores || [])
+            setTotalStores(res.data.pagination?.totalStores || 0)
+            setTotalPages(res.data.pagination?.totalPages || 1)
 
         } catch (error) {
             console.log(error.response?.data || error.message)
@@ -126,7 +112,7 @@ function Inventory() {
         }
     }
 
-    // GET STORES
+    // GET ALL STORES
     const getStores = async () => {
         try {
             const res = await axios.get(
@@ -138,10 +124,11 @@ function Inventory() {
 
         } catch (error) {
             console.log(error.response?.data || error.message)
+            toast.error('Unable to fetch stores.')
         }
     }
 
-    // GET PRODUCTS
+    // GET ALL PRODUCTS
     const getProducts = async () => {
         try {
             const res = await axios.get(
@@ -149,14 +136,27 @@ function Inventory() {
                 { withCredentials: true }
             )
 
-            setProducts(res.data.data || [])
+            const possibleProducts = [
+                res.data?.data,
+                res.data?.data?.products,
+                res.data?.products,
+                res.data?.data?.data
+            ]
+
+            const productList = possibleProducts.find(
+                item => Array.isArray(item)
+            ) || []
+
+            setProducts(productList)
 
         } catch (error) {
             console.log(error.response?.data || error.message)
+            setProducts([])
+            toast.error('Unable to fetch products.')
         }
     }
 
-    // GET PRODUCT VARIANTS
+    // GET ALL VARIANTS
     const getVariants = async () => {
         try {
             const res = await axios.get(
@@ -164,25 +164,36 @@ function Inventory() {
                 { withCredentials: true }
             )
 
-            setVariants(res.data.data || [])
+            const possibleVariants = [
+                res.data?.data,
+                res.data?.data?.variants,
+                res.data?.variants,
+                res.data?.data?.data
+            ]
+
+            const variantList = possibleVariants.find(
+                item => Array.isArray(item)
+            ) || []
+
+            setVariants(variantList)
 
         } catch (error) {
-            console.log(
-                'GET VARIANTS ERROR:',
-                error.response?.data || error.message
-            )
+            console.log(error.response?.data || error.message)
+            setVariants([])
+            toast.error('Unable to fetch variants.')
         }
     }
 
+    // INITIAL USER CHECK
     useEffect(() => {
         checkUser()
     }, [])
 
+    // FETCH INVENTORY LIST
     useEffect(() => {
         if (authLoading || accessDenied || !canView) return
 
-        getInventory()
-
+        getStoresInventory()
     }, [
         authLoading,
         accessDenied,
@@ -193,18 +204,16 @@ function Inventory() {
         order
     ])
 
+    // FETCH FORM DATA
     useEffect(() => {
-        if (authLoading || accessDenied) return
+        if (authLoading || accessDenied || !canCreate) return
 
-        if (canCreate || canEdit) {
-            getStores()
-            getProducts()
-            getVariants()
-        }
+        getStores()
+        getProducts()
+        getVariants()
+    }, [authLoading, accessDenied, canCreate])
 
-    }, [authLoading, accessDenied, canCreate, canEdit])
-
-    // FILTER VARIANTS
+    // FILTER VARIANTS ACCORDING TO SELECTED PRODUCT
     const filteredVariants = variants.filter((variant) => {
         const variantProductId =
             variant.product?._id || variant.product
@@ -213,31 +222,148 @@ function Inventory() {
             form.product?.toString()
     })
 
-    // INPUT CHANGE
+    // OPEN ADD FORM
+    const handleAdd = () => {
+        if (!canCreate) {
+            toast.error('You do not have permission to create inventory.')
+            return
+        }
+
+        setForm({ ...initialForm })
+        setShowForm(true)
+    }
+
+    // CLOSE FORM
+    const handleClose = () => {
+        setShowForm(false)
+        setForm({ ...initialForm })
+    }
+
+    // HANDLE INPUT CHANGE
     const handleChange = (e) => {
         const { name, value } = e.target
 
         if (name === 'product') {
-            setForm((prev) => ({
+            setForm(prev => ({
                 ...prev,
                 product: value,
                 variant: ''
             }))
         } else {
-            setForm((prev) => ({
+            setForm(prev => ({
                 ...prev,
                 [name]: value
             }))
         }
     }
 
-    // SEARCH CHANGE
+    // SUBMIT INVENTORY
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+
+        if (!canCreate) {
+            toast.error('You do not have permission to create inventory.')
+            return
+        }
+
+        if (
+            !form.store ||
+            !form.product ||
+            !form.variant ||
+            form.quantity === '' ||
+            form.reservedQuantity === '' ||
+            form.reorderLevel === '' ||
+            form.maxStockLevel === ''
+        ) {
+            toast.error('Please fill all required fields.')
+            return
+        }
+
+        const quantity = Number(form.quantity)
+        const reservedQuantity = Number(form.reservedQuantity)
+        const reorderLevel = Number(form.reorderLevel)
+        const maxStockLevel = Number(form.maxStockLevel)
+
+        if (
+            ![
+                quantity,
+                reservedQuantity,
+                reorderLevel,
+                maxStockLevel
+            ].every(Number.isFinite) ||
+            [
+                quantity,
+                reservedQuantity,
+                reorderLevel,
+                maxStockLevel
+            ].some(value => value < 0)
+        ) {
+            toast.error('Please enter valid non-negative quantities.')
+            return
+        }
+
+        if (reservedQuantity > quantity) {
+            toast.error('Reserved quantity cannot exceed total quantity.')
+            return
+        }
+
+        if (quantity > maxStockLevel) {
+            toast.error('Quantity cannot exceed maximum stock level.')
+            return
+        }
+
+        if (reorderLevel > maxStockLevel) {
+            toast.error('Reorder level cannot exceed maximum stock level.')
+            return
+        }
+
+        try {
+            setSaving(true)
+
+            const data = {
+                ...form,
+                quantity,
+                reservedQuantity,
+                reorderLevel,
+                maxStockLevel
+            }
+
+            await axios.post(
+                'http://localhost:8000/inventory/create',
+                data,
+                { withCredentials: true }
+            )
+
+            toast.success('Inventory added successfully')
+
+            handleClose()
+
+            // REFRESH INVENTORY LIST
+            if (currentPage !== 1) {
+                setCurrentPage(1)
+            } else {
+                await getStoresInventory()
+            }
+
+        } catch (error) {
+            console.log(error.response?.data || error.message)
+
+            toast.error(
+                error.response?.data?.message ||
+                'Unable to add inventory.'
+            )
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    // SEARCH
     const handleSearch = (e) => {
         setSearch(e.target.value)
         setCurrentPage(1)
     }
 
-    // SORT CHANGE
+    // SORT
     const handleSort = (e) => {
         const [field, direction] = e.target.value.split('_')
 
@@ -246,163 +372,28 @@ function Inventory() {
         setCurrentPage(1)
     }
 
-    // ADD INVENTORY
-    const handleAdd = () => {
-        setForm({ ...initialForm })
-        setEditId(null)
-        setShowForm(true)
+    // OPEN STORE PRODUCTS
+    const handleOpenStore = (item) => {
+        if (!item.store?._id) {
+            toast.error('Store details not found.')
+            return
+        }
+
+        navigate(`/inventory/store/${item.store._id}`)
     }
 
-    // SUBMIT FORM
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-
-        if (editId && !hasPermission('storeinventory_edit')) {
-            toast.error('You do not have permission to edit inventory.')
-            return
-        }
-
-        if (!editId && !hasPermission('storeinventory_create')) {
-            toast.error('You do not have permission to create inventory.')
-            return
-        }
-
-        if (!form.variant) {
-            toast.error('Please select a product variant.')
-            return
-        }
-
-        if (Number(form.reservedQuantity || 0) > Number(form.quantity)) {
-            toast.error('Reserved quantity cannot exceed total quantity.')
-            return
-        }
-
-        if (
-            Number(form.maxStockLevel || 0) > 0 &&
-            Number(form.quantity) > Number(form.maxStockLevel)
-        ) {
-            toast.error('Quantity cannot exceed maximum stock level.')
-            return
-        }
-
-        try {
-            const data = {
-                ...form,
-                quantity: Number(form.quantity),
-                reservedQuantity: Number(form.reservedQuantity || 0),
-                reorderLevel: Number(form.reorderLevel || 0),
-                maxStockLevel: Number(form.maxStockLevel || 0),
-                variant: form.variant || null
-            }
-
-            if (editId) {
-                await axios.put(
-                    `http://localhost:8000/inventory/update/${editId}`,
-                    data,
-                    { withCredentials: true }
-                )
-            } else {
-                await axios.post(
-                    'http://localhost:8000/inventory/create',
-                    data,
-                    { withCredentials: true }
-                )
-            }
-
-            toast.success(
-                editId
-                    ? 'Inventory updated successfully'
-                    : 'Inventory added successfully'
-            )
-
-            handleClose()
-            await getInventory()
-
-        } catch (error) {
-            console.log(error.response?.data || error.message)
-
-            toast.error(
-                error.response?.data?.message ||
-                'Unable to save inventory.'
-            )
-        }
-    }
-
-    // EDIT INVENTORY
-    const handleEdit = (item) => {
-        if (!hasPermission('storeinventory_edit')) {
-            toast.error('You do not have permission to edit inventory.')
-            return
-        }
-
-        setEditId(item._id)
-
-        setForm({
-            store: item.store?._id || item.store || '',
-            product: item.product?._id || item.product || '',
-            variant: item.variant?._id || item.variant || '',
-            quantity: item.quantity ?? '',
-            reservedQuantity: item.reservedQuantity ?? '',
-            reorderLevel: item.reorderLevel ?? '',
-            maxStockLevel: item.maxStockLevel ?? '',
-        })
-
-        setShowForm(true)
-    }
-
-    // DELETE INVENTORY
-    const handleDelete = async (id) => {
-        if (!hasPermission('storeinventory_delete')) {
-            toast.error('You do not have permission to delete inventory.')
-            return
-        }
-
-        try {
-            await axios.delete(
-                `http://localhost:8000/inventory/delete/${id}`,
-                { withCredentials: true }
-            )
-
-            toast.success('Inventory deleted successfully')
-
-            if (inventory.length === 1 && currentPage > 1) {
-                setCurrentPage((prev) => prev - 1)
-            } else {
-                await getInventory()
-            }
-
-        } catch (error) {
-            console.log(error.response?.data || error.message)
-
-            toast.error(
-                error.response?.data?.message ||
-                'Unable to delete inventory.'
-            )
-        }
-    }
-
-    // VIEW INVENTORY
-    const handleView = (item) => {
-        setViewItem(item)
-        setShowView(true)
-    }
-
- 
-    // CLOSE FORM
-    const handleClose = () => {
-        setShowForm(false)
-        setEditId(null)
-        setForm({ ...initialForm })
-    }
-
+    // AUTH LOADING
     if (authLoading) {
         return (
             <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
-                <p className="text-gray-600">Checking permissions...</p>
+                <p className="text-gray-600">
+                    Checking permissions...
+                </p>
             </div>
         )
     }
 
+    // ACCESS DENIED
     if (accessDenied) {
         return (
             <div className="p-3 sm:p-6 bg-gray-50 min-h-screen">
@@ -429,6 +420,7 @@ function Inventory() {
                     <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
                         Store Inventory
                     </h1>
+
                     <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         Manage your store stock and inventory
                     </p>
@@ -436,6 +428,7 @@ function Inventory() {
 
                 {canCreate && (
                     <button
+                        type="button"
                         onClick={handleAdd}
                         className="w-full sm:w-auto bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 transition font-medium"
                     >
@@ -471,357 +464,74 @@ function Inventory() {
                 </select>
             </div>
 
-            {/* ADD / EDIT MODAL */}
-            {showForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-
-                    <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-
-                        <div className="flex justify-between items-center mb-5 gap-3">
-
-                            <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-                                {editId ? 'Edit Inventory' : 'Add Inventory'}
-                            </h2>
-
-                            <button
-                                type="button"
-                                onClick={handleClose}
-                                className="text-2xl text-gray-500 hover:text-black"
-                            >
-                                &times;
-                            </button>
-                        </div>
-
-                        <form
-                            onSubmit={handleSubmit}
-                            className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
-                        >
-
-                            <select
-                                name="store"
-                                value={form.store}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                required
-                            >
-                                <option value="">Select Store</option>
-
-                                {stores.map((store) => (
-                                    <option key={store._id} value={store._id}>
-                                        {store.name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                name="product"
-                                value={form.product}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                required
-                            >
-                                <option value="">Select Product</option>
-
-                                {products.map((product) => (
-                                    <option key={product._id} value={product._id}>
-                                        {product.name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                name="variant"
-                                value={form.variant}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                required
-                                disabled={!form.product}
-                            >
-                                <option value="">
-                                    {!form.product
-                                        ? 'First Select Product'
-                                        : 'Select Variant'}
-                                </option>
-
-                                {filteredVariants.map((variant) => (
-                                    <option
-                                        key={variant._id}
-                                        value={variant._id}
-                                    >
-                                        {variant.name} - {variant.unitValue} {variant.unit}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="number"
-                                name="quantity"
-                                placeholder="Quantity"
-                                value={form.quantity}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                min="0"
-                                required
-                            />
-
-                            <input
-                                type="number"
-                                name="reservedQuantity"
-                                placeholder="Reserved Quantity"
-                                value={form.reservedQuantity}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                min="0"
-                            />
-
-                            <input
-                                type="number"
-                                name="reorderLevel"
-                                placeholder="Reorder Level"
-                                value={form.reorderLevel}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                min="0"
-                            />
-
-                            <input
-                                type="number"
-                                name="maxStockLevel"
-                                placeholder="Max Stock Level"
-                                value={form.maxStockLevel}
-                                onChange={handleChange}
-                                className="border border-gray-300 p-3 rounded-lg w-full min-w-0 outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
-                                min="0"
-                            />
-
-                            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:col-span-2 justify-end mt-3">
-
-                                <button
-                                    type="button"
-                                    onClick={handleClose}
-                                    className="w-full sm:w-auto border px-5 py-2.5 rounded-lg hover:bg-gray-100"
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    type="submit"
-                                    className="w-full sm:w-auto bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700"
-                                >
-                                    {editId ? 'Update Inventory' : 'Add Inventory'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* VIEW MODAL */}
-            {showView && viewItem && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-
-                    <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
-
-                        <div className="flex justify-between items-center mb-5 gap-3">
-
-                            <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-                                Inventory Details
-                            </h2>
-
-                            <button
-                                onClick={() => {
-                                    setShowView(false)
-                                    setViewItem(null)
-                                }}
-                                className="text-2xl text-gray-500 hover:text-black"
-                            >
-                                &times;
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Store</p>
-                                    <p className="font-semibold text-sm sm:text-base break-words">
-                                        {viewItem.store?.name || '-'}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Product</p>
-                                    <p className="font-semibold text-sm sm:text-base break-words">
-                                        {viewItem.product?.name || '-'}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Variant</p>
-                                    <p className="font-semibold text-sm sm:text-base break-words">
-                                        {viewItem.variant?.name || '-'}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Quantity</p>
-                                    <p className="font-semibold text-sm sm:text-base">
-                                        {viewItem.quantity ?? 0}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Reserved Quantity</p>
-                                    <p className="font-semibold text-sm sm:text-base">
-                                        {viewItem.reservedQuantity ?? 0}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Available Quantity</p>
-                                    <p className="font-semibold text-sm sm:text-base">
-                                        {viewItem.availableQuantity ?? 0}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Reorder Level</p>
-                                    <p className="font-semibold text-sm sm:text-base">
-                                        {viewItem.reorderLevel ?? 0}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Maximum Stock Level</p>
-                                    <p className="font-semibold text-sm sm:text-base">
-                                        {viewItem.maxStockLevel ?? 0}
-                                    </p>
-                                </div>
-
-                            
-                                <div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">Last Restocked</p>
-                                    <p className="font-semibold text-sm sm:text-base">
-                                        {viewItem.lastRestockedAt
-                                            ? new Date(viewItem.lastRestockedAt).toLocaleDateString()
-                                            : '-'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end pt-4">
-                                <button
-                                    onClick={() => {
-                                        setShowView(false)
-                                        setViewItem(null)
-                                    }}
-                                    className="w-full sm:w-auto bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* INVENTORY TABLE */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
 
                 <div className="overflow-x-auto w-full">
 
-                    <table className="w-full min-w-[950px] text-left">
+                    <table className="w-full min-w-[850px] text-left">
 
                         <thead className="bg-purple-100">
                             <tr>
                                 <th className="p-3 text-sm font-semibold">S.No.</th>
                                 <th className="p-3 text-sm font-semibold">Store</th>
-                                <th className="p-3 text-sm font-semibold">Product</th>
-                                <th className="p-3 text-sm font-semibold">Variant</th>
-                                <th className="p-3 text-sm font-semibold">Quantity</th>
-                                <th className="p-3 text-sm font-semibold">Reserved</th>
-                                <th className="p-3 text-sm font-semibold">Available</th>
-                                <th className="p-3 text-sm font-semibold">Reorder Level</th>
-                                <th className="p-3 text-sm font-semibold">Actions</th>
+                                <th className="p-3 text-sm font-semibold">Total Products</th>
+                                <th className="p-3 text-sm font-semibold">Total Quantity</th>
+                                <th className="p-3 text-sm font-semibold">Total Reserved</th>
+                                <th className="p-3 text-sm font-semibold">Total Available</th>
+                                <th className="p-3 text-sm font-semibold">Action</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {inventory.map((item, index) => (
-                                <tr key={item._id} className="border-t hover:bg-gray-50 transition">
-
+                            {inventoryStores.map((item, index) => (
+                                <tr
+                                    key={item.store?._id || index}
+                                    onClick={() => handleOpenStore(item)}
+                                    className="border-t hover:bg-purple-50 cursor-pointer transition"
+                                >
                                     <td className="p-3 text-sm">
                                         {(currentPage - 1) * limit + index + 1}
                                     </td>
 
-                                    <td className="p-3 text-sm">
+                                    <td className="p-3 text-sm font-semibold text-purple-700">
                                         {item.store?.name || '-'}
                                     </td>
 
                                     <td className="p-3 text-sm">
-                                        {item.product?.name || '-'}
+                                        {item.productCount ?? 0}
                                     </td>
 
                                     <td className="p-3 text-sm">
-                                        {item.variant?.name || '-'}
+                                        {item.totalQuantity ?? 0}
                                     </td>
 
-                                    <td className="p-3 text-sm">{item.quantity}</td>
+                                    <td className="p-3 text-sm">
+                                        {item.totalReserved ?? 0}
+                                    </td>
 
-                                    <td className="p-3 text-sm">{item.reservedQuantity}</td>
+                                    <td className="p-3 text-sm">
+                                        {item.totalAvailable ?? 0}
+                                    </td>
 
-                                    <td className="p-3 text-sm">{item.availableQuantity}</td>
-
-                                    <td className="p-3 text-sm">{item.reorderLevel}</td>
-
-                                  
-
-                                    {/* ACTIONS */}
-                                    <td className="p-3">
-                                        <div className="flex gap-2">
-
-                                            <button
-                                                onClick={() => handleView(item)}
-                                                title="View"
-                                                className="bg-purple-500 text-white p-2 rounded-lg hover:bg-purple-600 transition"
-                                            >
-                                                <LuEye size={16} />
-                                            </button>
-
-                                            {canEdit && (
-                                                <button
-                                                    onClick={() => handleEdit(item)}
-                                                    title="Edit"
-                                                    className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition"
-                                                >
-                                                    <LuSquarePen size={16} />
-                                                </button>
-                                            )}
-
-                                            {hasPermission('storeinventory_delete') && (
-                                                <button
-                                                    onClick={() => handleDelete(item._id)}
-                                                    title="Delete"
-                                                    className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition"
-                                                >
-                                                    <LuTrash2 size={16} />
-                                                </button>
-                                            )}
-
-                                        </div>
+                                    <td className="p-3 text-sm text-purple-600 font-medium">
+                                        View Products →
                                     </td>
                                 </tr>
                             ))}
 
-                            {inventory.length === 0 && (
+                            {inventoryStores.length === 0 && (
                                 <tr>
-                                    <td colSpan="10" className="p-6 text-center text-gray-500 text-sm">
+                                    <td
+                                        colSpan={7}
+                                        className="p-6 text-center text-gray-500 text-sm"
+                                    >
                                         No inventory found
                                     </td>
                                 </tr>
                             )}
                         </tbody>
+
                     </table>
                 </div>
             </div>
@@ -830,13 +540,16 @@ function Inventory() {
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4 mt-5">
 
                 <p className="text-sm text-gray-600">
-                    Total Inventory: <span className="font-semibold text-gray-800">{totalInventory}</span>
+                    Total Stores:{' '}
+                    <span className="font-semibold text-gray-800">
+                        {totalStores}
+                    </span>
                 </p>
 
                 <div className="flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
 
                     <button
-                        onClick={() => setCurrentPage((prev) => prev - 1)}
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
                         className="border px-3 sm:px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
                     >
@@ -848,14 +561,215 @@ function Inventory() {
                     </span>
 
                     <button
-                        onClick={() => setCurrentPage((prev) => prev + 1)}
+                        onClick={() => setCurrentPage(prev => prev + 1)}
                         disabled={currentPage >= totalPages}
                         className="border px-3 sm:px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
                     >
                         Next
                     </button>
+
                 </div>
             </div>
+
+            {/* ADD INVENTORY MODAL */}
+            {showForm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+
+                    <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+
+                        <div className="flex justify-between items-center mb-5 gap-3">
+
+                            <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+                                Add Inventory
+                            </h2>
+
+                            <button
+                                type="button"
+                                onClick={handleClose}
+                                disabled={saving}
+                                className="text-2xl text-gray-500 hover:text-black"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <form
+                            onSubmit={handleSubmit}
+                            className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
+                        >
+
+                            {/* STORE */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Store <span className="text-red-500">*</span>
+                                </label>
+
+                                <select
+                                    name="store"
+                                    value={form.store}
+                                    onChange={handleChange}
+                                    required
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                                >
+                                    <option value="">Select Store</option>
+
+                                    {stores.map(store => (
+                                        <option key={store._id} value={store._id}>
+                                            {store.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* PRODUCT */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Product <span className="text-red-500">*</span>
+                                </label>
+
+                                <select
+                                    name="product"
+                                    value={form.product}
+                                    onChange={handleChange}
+                                    required
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                                >
+                                    <option value="">Select Product</option>
+
+                                    {products.map(product => (
+                                        <option key={product._id} value={product._id}>
+                                            {product.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* VARIANT */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Product Variant <span className="text-red-500">*</span>
+                                </label>
+
+                                <select
+                                    name="variant"
+                                    value={form.variant}
+                                    onChange={handleChange}
+                                    required
+                                    disabled={!form.product}
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base disabled:bg-gray-100"
+                                >
+                                    <option value="">
+                                        {!form.product
+                                            ? 'First Select Product'
+                                            : 'Select Variant'}
+                                    </option>
+
+                                    {filteredVariants.map(variant => (
+                                        <option key={variant._id} value={variant._id}>
+                                            {variant.name} - {variant.unitValue} {variant.unit}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* QUANTITY */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Total Quantity <span className="text-red-500">*</span>
+                                </label>
+
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    placeholder="Enter total quantity"
+                                    value={form.quantity}
+                                    onChange={handleChange}
+                                    min="0"
+                                    required
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                                />
+                            </div>
+
+                            {/* RESERVED QUANTITY */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Reserved Quantity <span className="text-red-500">*</span>
+                                </label>
+
+                                <input
+                                    type="number"
+                                    name="reservedQuantity"
+                                    placeholder="Enter reserved quantity"
+                                    value={form.reservedQuantity}
+                                    onChange={handleChange}
+                                    min="0"
+                                    required
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                                />
+                            </div>
+
+                            {/* REORDER LEVEL */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Reorder Level <span className="text-red-500">*</span>
+                                </label>
+
+                                <input
+                                    type="number"
+                                    name="reorderLevel"
+                                    placeholder="Enter reorder level"
+                                    value={form.reorderLevel}
+                                    onChange={handleChange}
+                                    min="0"
+                                    required
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                                />
+                            </div>
+
+                            {/* MAX STOCK LEVEL */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Maximum Stock Level <span className="text-red-500">*</span>
+                                </label>
+
+                                <input
+                                    type="number"
+                                    name="maxStockLevel"
+                                    placeholder="Enter maximum stock level"
+                                    value={form.maxStockLevel}
+                                    onChange={handleChange}
+                                    min="1"
+                                    required
+                                    className="border border-gray-300 p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                                />
+                            </div>
+
+                            {/* FORM BUTTONS */}
+                            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:col-span-2 justify-end mt-3">
+
+                                <button
+                                    type="button"
+                                    onClick={handleClose}
+                                    disabled={saving}
+                                    className="w-full sm:w-auto border border-gray-300 px-5 py-2.5 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="w-full sm:w-auto bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : 'Add Inventory'}
+                                </button>
+
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+            )}
 
         </div>
     )

@@ -512,8 +512,8 @@ const Store = () => {
             phone: stores.phone || '',
             address: stores.address || '',
             location: {
-                latitude: stores.location?.latitude ?? '',
-                longitude: stores.location?.longitude ?? ''
+                latitude: stores.location?.coordinates?.[1] ?? '',
+                longitude: stores.location?.coordinates?.[0] ?? ''
             },
             serviceRadius: stores.serviceRadius ?? ''
         })
@@ -808,8 +808,8 @@ const Store = () => {
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
-                                            {stores.location
-                                                ? `${stores.location.latitude ?? 'N/A'}, ${stores.location.longitude ?? 'N/A'}`
+                                            {stores.location?.coordinates?.length === 2
+                                                ? `${stores.location.coordinates[1]}, ${stores.location.coordinates[0]}`
                                                 : 'N/A'}
                                         </td>
 
@@ -819,11 +819,10 @@ const Store = () => {
 
                                         <td className="whitespace-nowrap px-4 py-4">
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-xs font-semibold ${
-                                                    stores.status === 'active'
-                                                        ? 'text-green-700'
-                                                        : 'text-gray-500'
-                                                }`}>
+                                                <span className={`text-xs font-semibold ${stores.status === 'active'
+                                                    ? 'text-green-700'
+                                                    : 'text-gray-500'
+                                                    }`}>
                                                     {stores.status === 'active' ? 'Active' : 'Inactive'}
                                                 </span>
 
@@ -833,18 +832,16 @@ const Store = () => {
                                                         onClick={() => handleStatusToggle(stores)}
                                                         disabled={updatingStatus === stores._id}
                                                         title="Change store status"
-                                                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                            stores.status === 'active'
-                                                                ? 'bg-green-500'
-                                                                : 'bg-gray-300'
-                                                        }`}
+                                                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${stores.status === 'active'
+                                                            ? 'bg-green-500'
+                                                            : 'bg-gray-300'
+                                                            }`}
                                                     >
                                                         <span
-                                                            className={`block h-5 w-5 rounded-full !bg-white shadow-md transition-transform duration-200 ${
-                                                                stores.status === 'active'
-                                                                    ? 'translate-x-5'
-                                                                    : 'translate-x-0'
-                                                            }`}
+                                                            className={`block h-5 w-5 rounded-full !bg-white shadow-md transition-transform duration-200 ${stores.status === 'active'
+                                                                ? 'translate-x-5'
+                                                                : 'translate-x-0'
+                                                                }`}
                                                         />
                                                     </button>
                                                 ) : null}
@@ -1266,15 +1263,13 @@ const Store = () => {
                             <div className="rounded-xl bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase text-slate-400">Latitude</p>
                                 <p className="mt-1 break-words font-semibold text-slate-800">
-                                    {viewStore.location?.latitude ?? 'N/A'}
-                                </p>
+                                    {viewStore.location?.coordinates?.[1] ?? 'N/A'}                                </p>
                             </div>
 
                             <div className="rounded-xl bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase text-slate-400">Longitude</p>
                                 <p className="mt-1 break-words font-semibold text-slate-800">
-                                    {viewStore.location?.longitude ?? 'N/A'}
-                                </p>
+                                    {viewStore.location?.coordinates?.[0] ?? 'N/A'}                                </p>
                             </div>
 
                             <div className="rounded-xl bg-slate-50 p-3">
@@ -1286,11 +1281,10 @@ const Store = () => {
 
                             <div className="rounded-xl bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase text-slate-400">Status</p>
-                                <p className={`mt-1 font-semibold ${
-                                    viewStore.status === 'active'
-                                        ? 'text-green-700'
-                                        : 'text-red-600'
-                                }`}>
+                                <p className={`mt-1 font-semibold ${viewStore.status === 'active'
+                                    ? 'text-green-700'
+                                    : 'text-red-600'
+                                    }`}>
                                     {viewStore.status || 'N/A'}
                                 </p>
                             </div>

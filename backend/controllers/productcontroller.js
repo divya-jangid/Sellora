@@ -1,4 +1,4 @@
-
+const mongoose = require('mongoose')
 const Product = require('../model/productmodel');
 const cloudinary = require('../config/cloudinary');
 const Category = require('../model/categorymodel');
@@ -7,6 +7,7 @@ const ProductVariant = require('../model/productvariant')
 const Inventory = require('../model/inventorymodel')
 const Store = require('../model/storemodel')
 const Brand = require('../model/brandmodel')
+
 
 // CREATE PRODUCT
 
@@ -99,13 +100,12 @@ const createProduct = async (req, res) => {
 // GET ALL PRODUCTS / PUBLIC PRODUCTS / PRODUCT BY SLUG
 
 
+
 const getAllProducts = async (req, res) => {
     try {
         const {
             categorySlug,
             subcategorySlug,
-            categoryId,
-            subCategoryId,
             productSlug,
             productId,
             storeId,
@@ -121,7 +121,10 @@ const getAllProducts = async (req, res) => {
 
         const filter = {}
 
-        // PUBLIC API: STORE ID REQUIRED
+        let selectedCategory = null
+        let selectedSubcategory = null
+
+        // PUBLIC: VALIDATE SELECTED STORE
         if (isPublic) {
             if (!storeId) {
                 return res.status(400).json({
@@ -145,83 +148,33 @@ const getAllProducts = async (req, res) => {
             filter.status = 'active'
         }
 
-        // CATEGORY FILTER BY ID
-        if (categoryId) {
-            const category = await Category.findOne({
-                _id: categoryId,
-                isDeleted: false,
-                status: 'active'
-            })
-
-            if (!category) {
-                return res.status(404).json({
-                    message: 'Category not found',
-                    status: false
-                })
-            }
-
-            filter.category = category._id
-        }
-
-        // CATEGORY FILTER BY SLUG
-        else if (categorySlug) {
-            const category = await Category.findOne({
+        // CATEGORY FILTER USING SLUG
+        if (categorySlug) {
+            selectedCategory = await Category.findOne({
                 slug: categorySlug,
                 isDeleted: false,
                 status: 'active'
             })
 
-            if (!category) {
+            if (!selectedCategory) {
                 return res.status(404).json({
                     message: 'Category not found',
                     status: false
                 })
             }
 
-            filter.category = category._id
+            filter.category = selectedCategory._id
         }
 
-        // SUBCATEGORY FILTER BY ID
-        if (subCategoryId) {
-            const subcategory = await SubCategory.findOne({
-                _id: subCategoryId,
-                isDeleted: false,
-                status: 'active'
-            })
-
-            if (!subcategory) {
-                return res.status(404).json({
-                    message: 'Subcategory not found',
-                    status: false
-                })
-            }
-
-            if (
-                filter.category &&
-                String(subcategory.category) !== String(filter.category)
-            ) {
-                return res.status(400).json({
-                    message: 'Subcategory does not belong to this category',
-                    status: false
-                })
-            }
-
-            filter.subCategory = subcategory._id
-
-            if (!filter.category) {
-                filter.category = subcategory.category
-            }
-        }
-
-        // SUBCATEGORY FILTER BY SLUG
-        else if (subcategorySlug) {
-            const subcategory = await SubCategory.findOne({
+        // SUBCATEGORY FILTER USING SLUG
+        if (subcategorySlug) {
+            selectedSubcategory = await SubCategory.findOne({
                 slug: subcategorySlug,
                 isDeleted: false,
                 status: 'active'
             })
 
-            if (!subcategory) {
+            if (!selectedSubcategory) {
                 return res.status(404).json({
                     message: 'Subcategory not found',
                     status: false
@@ -229,8 +182,9 @@ const getAllProducts = async (req, res) => {
             }
 
             if (
-                filter.category &&
-                String(subcategory.category) !== String(filter.category)
+                selectedCategory &&
+                String(selectedSubcategory.category) !==
+                String(selectedCategory._id)
             ) {
                 return res.status(400).json({
                     message: 'Subcategory does not belong to this category',
@@ -238,19 +192,19 @@ const getAllProducts = async (req, res) => {
                 })
             }
 
-            filter.subCategory = subcategory._id
+            filter.subCategory = selectedSubcategory._id
 
             if (!filter.category) {
-                filter.category = subcategory.category
+                filter.category = selectedSubcategory.category
             }
         }
 
         // BRAND FILTER
-           if (brandId) {
-           filter.brand = brandId
-       }
+        if (brandId) {
+            filter.brand = brandId
+        }
 
-        // SEARCH: PRODUCT, CATEGORY, SUBCATEGORY, BRAND
+        // SEARCH
         if (search.trim()) {
             const escapedSearch = search.trim().replace(
                 /[.*+?^${}()|[\]\\]/g,
@@ -260,11 +214,13 @@ const getAllProducts = async (req, res) => {
             const searchRegex = new RegExp(escapedSearch, 'i')
 
             const matchingCategories = await Category.find({
-                name: searchRegex
+                name: searchRegex,
+                isDeleted: false
             }).select('_id')
 
             const matchingSubCategories = await SubCategory.find({
-                name: searchRegex
+                name: searchRegex,
+                isDeleted: false
             }).select('_id')
 
             const matchingBrands = await Brand.find({
@@ -292,10 +248,22 @@ const getAllProducts = async (req, res) => {
             ]
         }
 
+        // PAGINATION
+        const currentPage = Math.max(parseInt(page) || 1, 1)
+
+        const pageLimit = Math.min(
+            Math.max(parseInt(limit) || 10, 1),
+            100
+        )
+
+        const skip = (currentPage - 1) * pageLimit
+
+        const sortOrder = order === 'asc' ? 1 : -1
+
         let products
         let pagination = null
 
-        // FIND PRODUCT BY ID
+        // SINGLE PRODUCT BY ID
         if (productId) {
             products = await Product.findOne({
                 ...filter,
@@ -306,7 +274,7 @@ const getAllProducts = async (req, res) => {
                 .populate('brand', 'name')
         }
 
-        // FIND PRODUCT BY SLUG
+        // SINGLE PRODUCT BY SLUG
         else if (productSlug) {
             products = await Product.findOne({
                 ...filter,
@@ -317,33 +285,20 @@ const getAllProducts = async (req, res) => {
                 .populate('brand', 'name')
         }
 
-        // GET ALL PRODUCTS
+        // ALL PRODUCTS
         else {
-            const currentPage = Math.max(
-                parseInt(page) || 1,
-                1
-            )
-
-            const pageLimit = Math.min(
-                Math.max(parseInt(limit) || 10, 1),
-                100
-            )
-
-            const skip = (currentPage - 1) * pageLimit
-            const sortOrder = order === 'asc' ? 1 : -1
-
-            const allowedSortFields = [
-                'name',
-                'createdAt',
-                'status'
-            ]
-
-            const sortField = allowedSortFields.includes(sortBy)
-                ? sortBy
-                : 'createdAt'
-
             // ADMIN API
             if (!isPublic) {
+                const allowedSortFields = [
+                    'name',
+                    'createdAt',
+                    'status'
+                ]
+
+                const sortField = allowedSortFields.includes(sortBy)
+                    ? sortBy
+                    : 'createdAt'
+
                 const totalProducts = await Product.countDocuments(filter)
 
                 const totalPages = Math.ceil(
@@ -366,92 +321,115 @@ const getAllProducts = async (req, res) => {
                     hasNextPage: currentPage < totalPages,
                     hasPrevPage: currentPage > 1
                 }
-
             } else {
-
-                // PUBLIC API: GET ALL ACTIVE PRODUCTS
+                // PUBLIC: ACTIVE PRODUCTS
                 const allProducts = await Product.find(filter)
                     .populate('category', 'name slug')
                     .populate('subCategory', 'name slug')
                     .populate('brand', 'name')
 
-                // GET STORE-WISE VARIANTS WITH STOCK QUANTITY
-                const productsWithVariants = await Promise.all(
-                    allProducts.map(async product => {
-
-                        const variants = await ProductVariant.find({
-                            product: product._id,
-                            status: 'active'
-                        })
-
-                        const productVariants = []
-
-                        for (const variant of variants) {
-
-                            // Inventory record is fetched even when quantity is 0.
-                            const inventory = await Inventory.findOne({
-                                store: storeId,
-                                product: product._id,
-                                variant: variant._id,
-                                status: 'active'
-                            })
-
-                            productVariants.push({
-                                ...variant.toObject(),
-
-                                // No inventory record means Out of Stock.
-                                availableQuantity: inventory
-                                    ? Number(inventory.availableQuantity || 0)
-                                    : 0
-                            })
-                        }
-
-                        return {
-                            ...product.toObject(),
-                            variants: productVariants
-                        }
-                    })
+                const productIds = allProducts.map(
+                    product => product._id
                 )
 
-                // CHECK WHETHER PRODUCT HAS ANY AVAILABLE VARIANT
+                // ACTIVE VARIANTS
+                const allVariants = await ProductVariant.find({
+                    product: { $in: productIds },
+                    status: 'active'
+                })
+
+                const variantIds = allVariants.map(
+                    variant => variant._id
+                )
+
+                // IMPORTANT:
+                // Fetch ALL inventory entries for selected store,
+                // including zero available quantity.
+                const inventories = await Inventory.find({
+                    store: storeId,
+                    product: { $in: productIds },
+                    variant: { $in: variantIds }
+                }).select('product variant availableQuantity')
+
+                // INVENTORY MAP
+                const inventoryMap = new Map()
+
+                inventories.forEach(inventory => {
+                    const key =
+                        `${String(inventory.product)}_${String(inventory.variant)}`
+
+                    inventoryMap.set(
+                        key,
+                        Number(inventory.availableQuantity || 0)
+                    )
+                })
+
+                // ONLY PRODUCTS ASSIGNED TO SELECTED STORE
+                const variantMap = new Map()
+
+                allVariants.forEach(variant => {
+                    const currentProductId = String(variant.product)
+
+                    const key =
+                        `${currentProductId}_${String(variant._id)}`
+
+                    // No inventory entry means variant is not assigned
+                    // to this store.
+                    if (!inventoryMap.has(key)) {
+                        return
+                    }
+
+                    const availableQuantity =
+                        inventoryMap.get(key)
+
+                    if (!variantMap.has(currentProductId)) {
+                        variantMap.set(currentProductId, [])
+                    }
+
+                    variantMap.get(currentProductId).push({
+                        ...variant.toObject(),
+                        availableQuantity
+                    })
+                })
+
+                // KEEP PRODUCTS HAVING AT LEAST ONE STORE INVENTORY ENTRY
+                let productsWithVariants = allProducts
+                    .map(product => ({
+                        ...product.toObject(),
+                        variants:
+                            variantMap.get(String(product._id)) || []
+                    }))
+                    .filter(product => product.variants.length > 0)
+
+                // PRODUCT STOCK CHECK
                 const isProductInStock = product => {
                     return product.variants.some(
-                        variant => Number(variant.availableQuantity) > 0
+                        variant =>
+                            Number(variant.availableQuantity) > 0
                     )
                 }
 
-                // SUBCATEGORY: VARIANT-LEVEL PAGINATION
+                // SUBCATEGORY: VARIANT LEVEL PAGINATION
                 if (filter.subCategory) {
+                    let allVariantCards = productsWithVariants.flatMap(
+                        product =>
+                            product.variants.map(variant => ({
+                                product,
+                                variant
+                            }))
+                    )
 
-                    let allVariantCards = productsWithVariants.flatMap(product => {
-                        return product.variants.map(variant => ({
-                            product,
-                            variant
-                        }))
-                    })
-
-                    // IN STOCK FIRST, OUT OF STOCK LAST
                     allVariantCards.sort((a, b) => {
-
-                        const stockA = Number(a.variant.availableQuantity) > 0 ? 1 : 0
-                        const stockB = Number(b.variant.availableQuantity) > 0 ? 1 : 0
-
-                        if (stockA !== stockB) {
-                            return stockB - stockA
-                        }
-
                         let result = 0
 
                         if (sortBy === 'price') {
                             result =
                                 Number(a.variant.sellingPrice || 0) -
                                 Number(b.variant.sellingPrice || 0)
-
                         } else if (sortBy === 'name') {
                             result = a.product.name.localeCompare(
                                 b.product.name
                             )
-
                         } else {
                             result =
                                 new Date(a.product.createdAt) -
@@ -472,23 +450,19 @@ const getAllProducts = async (req, res) => {
                         skip + pageLimit
                     )
 
-                    // GROUP PAGINATED VARIANTS BY PRODUCT
                     const productMap = new Map()
 
                     paginatedVariants.forEach(item => {
+                        const id = String(item.product._id)
 
-                        const currentProductId = String(item.product._id)
-
-                        if (!productMap.has(currentProductId)) {
-                            productMap.set(currentProductId, {
+                        if (!productMap.has(id)) {
+                            productMap.set(id, {
                                 ...item.product,
                                 variants: []
                             })
                         }
 
-                        productMap.get(currentProductId).variants.push(
-                            item.variant
-                        )
+                        productMap.get(id).variants.push(item.variant)
                     })
 
                     products = Array.from(productMap.values())
@@ -502,12 +476,9 @@ const getAllProducts = async (req, res) => {
                         hasNextPage: currentPage < totalPages,
                         hasPrevPage: currentPage > 1
                     }
-
                 } else {
-
-                    // CATEGORY: IN STOCK PRODUCTS FIRST
+                    // CATEGORY: IN STOCK FIRST, OUT OF STOCK AFTER
                     productsWithVariants.sort((a, b) => {
-
                         const stockA = isProductInStock(a) ? 1 : 0
                         const stockB = isProductInStock(b) ? 1 : 0
 
@@ -519,16 +490,14 @@ const getAllProducts = async (req, res) => {
 
                         if (sortBy === 'name') {
                             result = a.name.localeCompare(b.name)
-
                         } else if (sortBy === 'price') {
+                            const pricesA = a.variants.map(
+                                v => Number(v.sellingPrice)
+                            ).filter(price => price > 0)
 
-                            const pricesA = a.variants
-                                .map(v => Number(v.sellingPrice))
-                                .filter(price => price > 0)
-
-                            const pricesB = b.variants
-                                .map(v => Number(v.sellingPrice))
-                                .filter(price => price > 0)
+                            const pricesB = b.variants.map(
+                                v => Number(v.sellingPrice)
+                            ).filter(price => price > 0)
 
                             const priceA = pricesA.length
                                 ? Math.min(...pricesA)
@@ -539,7 +508,6 @@ const getAllProducts = async (req, res) => {
                                 : 0
 
                             result = priceA - priceB
-
                         } else {
                             result =
                                 new Date(a.createdAt) -
@@ -549,7 +517,6 @@ const getAllProducts = async (req, res) => {
                         return sortOrder * result
                     })
 
-                    // CATEGORY PRODUCT PAGINATION
                     const totalProducts = productsWithVariants.length
 
                     const totalPages = Math.ceil(
@@ -581,37 +548,54 @@ const getAllProducts = async (req, res) => {
             })
         }
 
-        // PUBLIC API: SINGLE PRODUCT STORE-WISE INVENTORY
+        // PUBLIC: SINGLE PRODUCT STORE-WISE INVENTORY
         if (isPublic && (productId || productSlug)) {
-
             const variants = await ProductVariant.find({
                 product: products._id,
                 status: 'active'
             })
 
-            const productVariants = []
+            const variantIds = variants.map(
+                variant => variant._id
+            )
 
-            for (const variant of variants) {
+            const inventories = await Inventory.find({
+                store: storeId,
+                product: products._id,
+                variant: { $in: variantIds }
+            }).select('variant availableQuantity')
 
-                const inventory = await Inventory.findOne({
-                    store: storeId,
-                    product: products._id,
-                    variant: variant._id,
-                    status: 'active'
-                })
+            const inventoryMap = new Map()
 
-                productVariants.push({
+            inventories.forEach(inventory => {
+                inventoryMap.set(
+                    String(inventory.variant),
+                    Number(inventory.availableQuantity || 0)
+                )
+            })
+
+            // Only variants assigned to this store
+            const productVariants = variants
+                .filter(variant =>
+                    inventoryMap.has(String(variant._id))
+                )
+                .map(variant => ({
                     ...variant.toObject(),
-                    availableQuantity: inventory
-                        ? Number(inventory.availableQuantity || 0)
-                        : 0
-                })
-            }
+                    availableQuantity:
+                        inventoryMap.get(String(variant._id)) || 0
+                }))
 
-            // Product is returned even if all variants are Out of Stock.
             products = {
                 ...products.toObject(),
                 variants: productVariants
+            }
+
+            // Product not assigned to selected store
+            if (!productVariants.length) {
+                return res.status(404).json({
+                    message: 'Product is not available in selected store',
+                    status: false
+                })
             }
         }
 
@@ -623,9 +607,9 @@ const getAllProducts = async (req, res) => {
         })
 
     } catch (err) {
-
         console.log('GET ALL PRODUCTS ERROR:', err)
-            return res.status(500).json({
+
+        return res.status(500).json({
             message: err.message,
             status: false
         })
@@ -638,50 +622,55 @@ const getAllProducts = async (req, res) => {
 
 // GET FEATURED PRODUCTS
 
-
 const getFeaturedProducts = async (req, res) => {
     try {
+        const { storeId } = req.query;
 
-        const { storeId } = req.query
+        // PAGINATION
+        const pageNumber = Math.max(1, Number(req.query.page) || 1);
+        const limitNumber = Math.min(
+            100,
+            Math.max(1, Number(req.query.limit) || 10)
+        );
 
-        // CHECK STORE ID
-        if (!storeId) {
+        if (!mongoose.Types.ObjectId.isValid(storeId || '')) {
             return res.status(400).json({
-                message: 'Please select your store',
+                message: 'Please select a valid store',
                 status: false
-            })
+            });
         }
 
         // CHECK ACTIVE STORE
         const store = await Store.findOne({
             _id: storeId,
             status: 'active'
-        })
+        });
 
         if (!store) {
             return res.status(404).json({
                 message: 'Store not found or inactive',
                 status: false
-            })
+            });
         }
 
-        // ONLY ACTIVE PRODUCTS
+        // ONLY ACTIVE FEATURED PRODUCTS
         const products = await Product.find({
-            status: 'active'
+            status: 'active',
+            isFeatured: true
         })
             .populate('category', 'name slug')
             .populate('subCategory', 'name slug')
             .populate('brand', 'name')
+            .sort({ createdAt: -1 });
 
-        // CHECK FEATURED VARIANTS AND STORE INVENTORY
+        // CHECK ACTIVE VARIANTS AND STORE INVENTORY
         const productsWithVariants = await Promise.all(
             products.map(async (product) => {
 
                 const variants = await ProductVariant.find({
                     product: product._id,
-                    status: 'active',
-                    isFeatured: true
-                })
+                    status: 'active'
+                });
 
                 const availableVariants = await Promise.all(
                     variants.map(async (variant) => {
@@ -690,48 +679,70 @@ const getFeaturedProducts = async (req, res) => {
                             store: storeId,
                             product: product._id,
                             variant: variant._id,
-                            status: 'active'
-                        })
+                            availableQuantity: { $gt: 0 }
+                        });
 
-                        if (!inventory || inventory.availableQuantity <= 0) {
-                            return null
+                       
+                        if (!inventory) {
+                            return null;
                         }
 
                         return {
                             ...variant.toObject(),
                             availableQuantity: inventory.availableQuantity
-                        }
+                        };
                     })
-                )
+                );
 
                 return {
                     ...product.toObject(),
                     variants: availableVariants.filter(Boolean)
-                }
+                };
             })
-        )
+        );
 
-        // HIDE PRODUCTS HAVING NO AVAILABLE FEATURED VARIANTS
+
+        // ONLY PRODUCTS HAVING AVAILABLE VARIANTS
         const filteredProducts = productsWithVariants.filter(
             product => product.variants.length > 0
-        )
+        );
+
+        // TOTAL ELIGIBLE PRODUCTS
+        const totalProducts = filteredProducts.length;
+
+        // PAGINATION ON PRODUCTS, NOT VARIANTS
+        const startIndex = (pageNumber - 1) * limitNumber;
+
+        const paginatedProducts = filteredProducts.slice(
+            startIndex,
+            startIndex + limitNumber
+        );
+
+        const totalPages = Math.ceil(totalProducts / limitNumber);
 
         return res.status(200).json({
             message: 'Store-wise featured products fetched successfully',
             status: true,
-            data: filteredProducts
-        })
+            data: paginatedProducts,
+            pagination: {
+                totalProducts,
+                currentPage: pageNumber,
+                totalPages,
+                limit: limitNumber,
+                hasMore: pageNumber < totalPages
+            }
+        });
 
     } catch (err) {
 
-        console.log('FEATURED PRODUCTS ERROR:', err)
+        console.log('FEATURED PRODUCTS ERROR:', err);
 
         return res.status(500).json({
             message: err.message,
             status: false
-        })
+        });
     }
-}
+};
 
 
 // UPDATE PRODUCT
