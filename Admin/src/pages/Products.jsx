@@ -20,7 +20,6 @@ const Product = () => {
         subcategory: '',
         brand: '',
         description: '',
-        stock: '',
         isFeatured: false,
     })
 
@@ -248,7 +247,6 @@ const Product = () => {
             subcategory: '',
             brand: '',
             description: '',
-            stock: '',
             isFeatured: false,
         })
 
@@ -290,7 +288,6 @@ const Product = () => {
                 '',
             brand: data.brand?._id || data.brand || '',
             description: data.description || '',
-            stock: data.stock ?? '',
             isFeatured: data.isFeatured ?? false,
         })
 
@@ -366,7 +363,6 @@ const Product = () => {
                     subCategory: form.subcategory || undefined,
                     brand: form.brand,
                     description: form.description,
-                    stock: Number(form.stock),
                     isFeatured: form.isFeatured,
                 }
 
@@ -383,7 +379,6 @@ const Product = () => {
                 formData.append('category', form.category)
                 formData.append('brand', form.brand)
                 formData.append('description', form.description)
-                formData.append('stock', form.stock)
                 formData.append('isFeatured', String(form.isFeatured))
                 formData.append('image', image)
 
@@ -498,7 +493,7 @@ const Product = () => {
                     </h1>
 
                     <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                        Manage your products, categories and stock.
+                        Manage your productsa and categories 
                     </p>
                 </div>
 
@@ -514,7 +509,7 @@ const Product = () => {
                 )}
             </div>
 
-            {/* ADD / EDIT PRODUCT MODAL */}
+            {/* ADD / EDIT PRODUCT MODAL */} 
             {showForm && (
                 <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm sm:p-4">
                     <div className="mx-auto my-2 max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-indigo-100 bg-white shadow-2xl sm:my-4 sm:max-h-[92vh]">
@@ -687,23 +682,7 @@ const Product = () => {
                                 )}
                             </div>
 
-                            {/* STOCK */}
-                            <div>
-                                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Stock
-                                </label>
-
-                                <input
-                                    type="number"
-                                    name="stock"
-                                    min="0"
-                                    required
-                                    value={form.stock}
-                                    onChange={handleChange}
-                                    placeholder="Enter stock quantity"
-                                    className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-                                />
-                            </div>
+                          
 
                             {/* FEATURED PRODUCT */}
                             <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
@@ -826,13 +805,6 @@ const Product = () => {
                                 </div>
 
                                 <div>
-                                    <p className="text-xs text-slate-500">Stock</p>
-                                    <p className="mt-1 font-semibold text-slate-800">
-                                        {viewProduct.stock ?? 0}
-                                    </p>
-                                </div>
-
-                                <div>
                                     <p className="text-xs text-slate-500">Featured</p>
                                     <p className={`mt-1 font-semibold ${
                                         viewProduct.isFeatured
@@ -943,7 +915,6 @@ const Product = () => {
                                 <th className="px-6 py-4 font-semibold">Category</th>
                                 <th className="px-6 py-4 font-semibold">Subcategory</th>
                                 <th className="px-6 py-4 font-semibold">Brand</th>
-                                <th className="px-6 py-4 font-semibold">Stock</th>
                                 <th className="px-6 py-4 font-semibold">Featured</th>
                                 <th className="px-6 py-4 font-semibold">Status</th>
                                 <th className="px-6 py-4 text-center font-semibold">Action</th>
@@ -992,12 +963,7 @@ const Product = () => {
                                             {item.brand?.name || 'N/A'}
                                         </td>
 
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex rounded-lg bg-slate-100 px-3 py-1.5 font-semibold text-slate-700">
-                                                {item.stock}
-                                            </span>
-                                        </td>
-
+                                       
                                         {/* FEATURED STATUS */}
                                         <td className="px-6 py-4">
                                             {item.isFeatured ? (

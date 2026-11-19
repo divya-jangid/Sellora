@@ -1,4 +1,6 @@
+
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import {
@@ -8,10 +10,17 @@ import {
     ShieldCheck,
     Pencil,
     X,
-    Save
+    Save,
+    LockKeyhole,
+    ArrowRight,
+    KeyRound,
+    Shield,
+    CheckCircle2
 } from 'lucide-react'
 
 const MyProfile = () => {
+
+    const navigate = useNavigate()
 
     const [profile, setProfile] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -24,7 +33,7 @@ const MyProfile = () => {
         phone: ''
     })
 
-    // Get My Profile
+    // GET MY PROFILE
     const getMyProfile = async () => {
         try {
             const res = await axios.get(
@@ -51,7 +60,7 @@ const MyProfile = () => {
         }
     }
 
-    // Handle Input Change
+    // HANDLE INPUT CHANGE
     const handleChange = (e) => {
         setForm({
             ...form,
@@ -59,7 +68,7 @@ const MyProfile = () => {
         })
     }
 
-    // Update Profile
+    // UPDATE PROFILE
     const handleUpdateProfile = async () => {
 
         if (
@@ -98,7 +107,7 @@ const MyProfile = () => {
         }
     }
 
-    // Cancel Edit
+    // CANCEL EDIT
     const handleCancel = () => {
         setForm({
             firstName: profile.firstName || '',
@@ -113,77 +122,145 @@ const MyProfile = () => {
         getMyProfile()
     }, [])
 
+    // LOADING
     if (loading) {
         return (
-            <div className="flex justify-center items-center min-h-[250px] sm:min-h-[300px]">
-                <p className="text-slate-500 text-sm sm:text-base">
-                    Loading profile...
-                </p>
+            <div className="flex items-center justify-center min-h-[300px]">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-9 h-9 border-[3px] border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                    <p className="text-sm text-slate-500">
+                        Loading profile...
+                    </p>
+                </div>
             </div>
         )
     }
 
+    // PROFILE NOT FOUND
     if (!profile) {
         return (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-8 text-center">
-                <p className="text-slate-500 text-sm sm:text-base">
+            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+                <UserRound
+                    size={38}
+                    className="mx-auto text-slate-300 mb-3"
+                />
+                <p className="text-slate-600 font-medium">
                     Profile not found
                 </p>
             </div>
         )
     }
 
-    const fullName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+    const fullName =
+        `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+
+    const details = [
+        {
+            label: 'First Name',
+            value: profile.firstName,
+            icon: UserRound
+        },
+        {
+            label: 'Last Name',
+            value: profile.lastName,
+            icon: UserRound
+        },
+        {
+            label: 'Email Address',
+            value: profile.email,
+            icon: Mail,
+            breakAll: true
+        },
+        {
+            label: 'Phone Number',
+            value: profile.phone,
+            icon: Phone
+        },
+        {
+            label: 'Role',
+            value: profile.role?.name,
+            icon: ShieldCheck
+        },
+        {
+            label: 'Account Status',
+            value: profile.status,
+            icon: Shield
+        }
+    ]
+
+    const inputClass =
+        "w-full border border-slate-200 bg-white px-4 py-3 rounded-lg text-sm text-slate-800 outline-none transition-all focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
 
     return (
-        <div className="w-full min-w-0 max-w-full overflow-x-hidden space-y-4 sm:space-y-6">
 
-            {/* Profile Header */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+        <div className="w-full min-w-0 space-y-5 sm:space-y-6">
 
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
+            {/* PAGE HEADING */}
+            <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
+                    My Profile
+                </h1>
 
-                    {/* Profile Icon */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-purple-100 flex items-center justify-center shrink-0 mx-auto sm:mx-0">
+                <p className="text-sm text-slate-500 mt-1">
+                    Manage your personal information and account settings.
+                </p>
+            </div>
+
+            {/* PROFILE HEADER */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-7">
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+
+                    {/* AVATAR */}
+                    <div className="w-[76px] h-[76px] rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mx-auto sm:mx-0">
                         <UserRound
-                            size={32}
-                            className="text-purple-600 sm:hidden"
-                        />
-
-                        <UserRound
-                            size={38}
-                            className="text-purple-600 hidden sm:block"
+                            size={37}
+                            strokeWidth={1.8}
+                            className="text-indigo-600"
                         />
                     </div>
 
-                    {/* Profile Details */}
+                    {/* USER DETAILS */}
                     <div className="flex-1 min-w-0 text-center sm:text-left">
 
-                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 break-words">
+                        <h2 className="text-xl font-bold text-slate-800">
                             {fullName || 'My Profile'}
                         </h2>
 
-                        <p className="text-xs sm:text-sm text-slate-500 mt-1 break-all">
+                        <p className="text-sm text-slate-500 mt-1 break-all">
                             {profile.email}
                         </p>
 
-                        <span className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold capitalize">
-                            <ShieldCheck size={14} />
-                            {profile.status || 'Active'}
-                        </span>
+                        <div className="flex justify-center sm:justify-start mt-3">
+
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold capitalize">
+                                <CheckCircle2 size={14} />
+                                {profile.status || 'Active'}
+                            </span>
+
+                        </div>
 
                     </div>
 
-                    {/* Edit Button */}
+                    {/* EDIT BUTTON */}
                     <button
-                        onClick={() => editMode ? handleCancel() : setEditMode(true)}
-                        className={`w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition ${
+                        type="button"
+                        onClick={() =>
                             editMode
-                                ? 'border border-slate-300 text-slate-600 hover:bg-slate-50'
-                                : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                ? handleCancel()
+                                : setEditMode(true)
+                        }
+                        className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shrink-0 ${
+                            editMode
+                                ? 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-100'
                         }`}
                     >
-                        {editMode ? <X size={17} /> : <Pencil size={17} />}
+                        {editMode ? (
+                            <X size={17} />
+                        ) : (
+                            <Pencil size={17} />
+                        )}
 
                         {editMode ? 'Cancel Edit' : 'Edit Profile'}
                     </button>
@@ -192,229 +269,255 @@ const MyProfile = () => {
 
             </div>
 
-            {/* Personal Information */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+            {/* MAIN SECTION */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 sm:gap-6 items-stretch">
 
-                {/* Section Heading */}
-                <div className="mb-5 sm:mb-6">
+                {/* LEFT - CHANGE PASSWORD */}
+                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6 flex flex-col">
 
-                    <h3 className="text-base sm:text-lg font-semibold text-slate-800">
-                        Personal Information
-                    </h3>
+                    {/* CARD HEADING */}
+                    <div className="flex items-center gap-3 pb-5 border-b border-slate-100">
 
-                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                        Manage your personal account details.
-                    </p>
+                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                            <ShieldCheck
+                                size={21}
+                                className="text-indigo-600"
+                            />
+                        </div>
+
+                        <div>
+                            <h3 className="text-base font-bold text-slate-800">
+                                Account Security
+                            </h3>
+
+                            <p className="text-xs text-slate-500 mt-1">
+                                Manage your account security
+                            </p>
+                        </div>
+
+                    </div>
+
+                    {/* SECURITY CONTENT */}
+                    <div className="flex-1 py-7">
+
+                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 flex items-center justify-center mb-5">
+                            <LockKeyhole
+                                size={27}
+                                className="text-indigo-600"
+                            />
+                        </div>
+
+                        <h4 className="text-lg font-bold text-slate-800">
+                            Password & Security
+                        </h4>
+
+                        <p className="text-sm text-slate-500 leading-relaxed mt-2">
+                            Keep your admin account secure by maintaining a strong and unique password.
+                        </p>
+
+                        <div className="mt-6 space-y-3">
+
+                            <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                                <ShieldCheck
+                                    size={17}
+                                    className="text-indigo-600 shrink-0"
+                                />
+                                Secure account access
+                            </div>
+
+                            <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                                <ShieldCheck
+                                    size={17}
+                                    className="text-indigo-600 shrink-0"
+                                />
+                                Protect login credentials
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {/* CHANGE PASSWORD BUTTON */}
+                    <div className="pt-5 border-t border-slate-100">
+
+                        <button
+                            type="button"
+                            onClick={() => navigate('/change-password')}
+                            className="inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-all duration-200 group"
+                        >
+                            <KeyRound size={16} />
+
+                            Change Password
+
+                            <ArrowRight
+                                size={16}
+                                className="group-hover:translate-x-1 transition-transform"
+                            />
+                        </button>
+
+                        <p className="text-xs text-slate-400 mt-3">
+                            Update your password whenever needed.
+                        </p>
+
+                    </div>
 
                 </div>
 
-                {editMode ? (
+                {/* RIGHT - PERSONAL INFORMATION */}
+                <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6">
 
-                    /* Edit Form */
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                    {/* SECTION HEADING */}
+                    <div className="flex items-center gap-3 pb-5 border-b border-slate-100 mb-7">
 
-                        {/* First Name */}
-                        <div className="min-w-0">
-
-                            <label className="block text-sm font-medium text-slate-600 mb-2">
-                                First Name
-                            </label>
-
-                            <input
-                                type="text"
-                                name="firstName"
-                                value={form.firstName}
-                                onChange={handleChange}
-                                placeholder="Enter first name"
-                                className="w-full min-w-0 border border-slate-300 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                            <UserRound
+                                size={21}
+                                className="text-indigo-600"
                             />
-
                         </div>
 
-                        {/* Last Name */}
-                        <div className="min-w-0">
+                        <div>
+                            <h3 className="text-base font-bold text-slate-800">
+                                Personal Information
+                            </h3>
 
-                            <label className="block text-sm font-medium text-slate-600 mb-2">
-                                Last Name
-                            </label>
-
-                            <input
-                                type="text"
-                                name="lastName"
-                                value={form.lastName}
-                                onChange={handleChange}
-                                placeholder="Enter last name"
-                                className="w-full min-w-0 border border-slate-300 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-                            />
-
-                        </div>
-
-                        {/* Phone Number */}
-                        <div className="min-w-0">
-
-                            <label className="block text-sm font-medium text-slate-600 mb-2">
-                                Phone Number
-                            </label>
-
-                            <input
-                                type="text"
-                                name="phone"
-                                value={form.phone}
-                                onChange={handleChange}
-                                placeholder="Enter phone number"
-                                className="w-full min-w-0 border border-slate-300 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-                            />
-
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 pt-2">
-
-                            <button
-                                onClick={handleUpdateProfile}
-                                disabled={updateLoading}
-                                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition"
-                            >
-                                <Save size={17} />
-
-                                {updateLoading ? 'Saving...' : 'Save Changes'}
-                            </button>
-
-                            <button
-                                onClick={handleCancel}
-                                disabled={updateLoading}
-                                className="w-full sm:w-auto flex items-center justify-center gap-2 border border-slate-300 text-slate-600 px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition disabled:opacity-50"
-                            >
-                                <X size={17} />
-                                Cancel
-                            </button>
-
+                            <p className="text-xs text-slate-500 mt-1">
+                                Manage your personal account details
+                            </p>
                         </div>
 
                     </div>
 
-                ) : (
+                    {editMode ? (
 
-                    /* Profile Information */
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+                        /* EDIT FORM */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-5">
 
-                        {/* First Name */}
-                        <div className="flex items-start gap-3 min-w-0">
-
-                            <div className="p-2.5 bg-purple-50 rounded-lg shrink-0">
-                                <UserRound size={19} className="text-purple-600" />
-                            </div>
-
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-500 mb-1">
+                            {/* FIRST NAME */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-2">
                                     First Name
-                                </p>
+                                </label>
 
-                                <p className="text-sm font-semibold text-slate-800 break-words">
-                                    {profile.firstName || 'N/A'}
-                                </p>
+                                <input
+                                    type="text"
+                                    name="firstName"
+                                    value={form.firstName}
+                                    onChange={handleChange}
+                                    placeholder="Enter first name"
+                                    className={inputClass}
+                                />
                             </div>
 
-                        </div>
-
-                        {/* Last Name */}
-                        <div className="flex items-start gap-3 min-w-0">
-
-                            <div className="p-2.5 bg-purple-50 rounded-lg shrink-0">
-                                <UserRound size={19} className="text-purple-600" />
-                            </div>
-
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-500 mb-1">
+                            {/* LAST NAME */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-2">
                                     Last Name
-                                </p>
+                                </label>
 
-                                <p className="text-sm font-semibold text-slate-800 break-words">
-                                    {profile.lastName || 'N/A'}
-                                </p>
+                                <input
+                                    type="text"
+                                    name="lastName"
+                                    value={form.lastName}
+                                    onChange={handleChange}
+                                    placeholder="Enter last name"
+                                    className={inputClass}
+                                />
                             </div>
 
-                        </div>
-
-                        {/* Email */}
-                        <div className="flex items-start gap-3 min-w-0">
-
-                            <div className="p-2.5 bg-purple-50 rounded-lg shrink-0">
-                                <Mail size={19} className="text-purple-600" />
-                            </div>
-
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-500 mb-1">
-                                    Email Address
-                                </p>
-
-                                <p className="text-sm font-semibold text-slate-800 break-all">
-                                    {profile.email || 'N/A'}
-                                </p>
-                            </div>
-
-                        </div>
-
-                        {/* Phone */}
-                        <div className="flex items-start gap-3 min-w-0">
-
-                            <div className="p-2.5 bg-purple-50 rounded-lg shrink-0">
-                                <Phone size={19} className="text-purple-600" />
-                            </div>
-
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-500 mb-1">
+                            {/* PHONE */}
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-slate-600 mb-2">
                                     Phone Number
-                                </p>
+                                </label>
 
-                                <p className="text-sm font-semibold text-slate-800 break-words">
-                                    {profile.phone || 'N/A'}
-                                </p>
+                                <input
+                                    type="text"
+                                    name="phone"
+                                    value={form.phone}
+                                    onChange={handleChange}
+                                    placeholder="Enter phone number"
+                                    className={inputClass}
+                                />
+                            </div>
+
+                            {/* ACTION BUTTONS */}
+                            <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3 pt-2">
+
+                                <button
+                                    type="button"
+                                    onClick={handleUpdateProfile}
+                                    disabled={updateLoading}
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition disabled:opacity-50"
+                                >
+                                    <Save size={17} />
+                                    {updateLoading ? 'Saving...' : 'Save Changes'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCancel}
+                                    disabled={updateLoading}
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition"
+                                >
+                                    <X size={17} />
+                                    Cancel
+                                </button>
+
                             </div>
 
                         </div>
 
-                        {/* Role */}
-                        <div className="flex items-start gap-3 min-w-0">
+                    ) : (
 
-                            <div className="p-2.5 bg-purple-50 rounded-lg shrink-0">
-                                <ShieldCheck size={19} className="text-purple-600" />
-                            </div>
+                        /* PROFILE DETAILS */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-8">
 
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-500 mb-1">
-                                    Role
-                                </p>
+                            {details.map((item, index) => {
 
-                                <p className="text-sm font-semibold text-slate-800 capitalize break-words">
-                                    {profile.role?.name || 'N/A'}
-                                </p>
-                            </div>
+                                const Icon = item.icon
+
+                                return (
+
+                                    <div
+                                        key={index}
+                                        className="flex items-start gap-3 min-w-0"
+                                    >
+
+                                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                            <Icon
+                                                size={19}
+                                                strokeWidth={1.8}
+                                                className="text-indigo-600"
+                                            />
+                                        </div>
+
+                                        <div className="min-w-0 pt-0.5">
+
+                                            <p className="text-xs text-slate-500 mb-1.5">
+                                                {item.label}
+                                            </p>
+
+                                            <p className={`text-sm font-semibold text-slate-800 capitalize ${
+                                                item.breakAll
+                                                    ? 'break-all'
+                                                    : 'break-words'
+                                            }`}>
+                                                {item.value || 'N/A'}
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                )
+                            })}
 
                         </div>
 
-                        {/* Account Status */}
-                        <div className="flex items-start gap-3 min-w-0">
+                    )}
 
-                            <div className="p-2.5 bg-purple-50 rounded-lg shrink-0">
-                                <ShieldCheck size={19} className="text-purple-600" />
-                            </div>
-
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-500 mb-1">
-                                    Account Status
-                                </p>
-
-                                <p className="text-sm font-semibold text-slate-800 capitalize break-words">
-                                    {profile.status || 'N/A'}
-                                </p>
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                )}
+                </div>
 
             </div>
 

@@ -587,10 +587,12 @@ function StoreInventory() {
 
                 {canCreate && selectedStoreId && (
                     <button
+                        type="button"
                         onClick={handleAdd}
-                        className="w-full sm:w-auto bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 transition font-medium"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 font-semibold text-white shadow-md shadow-indigo-200 transition hover:shadow-lg sm:w-auto"
                     >
-                        + Add Inventory
+                        <span className="text-xl">+</span>
+                        Add Product
                     </button>
                 )}
             </div>

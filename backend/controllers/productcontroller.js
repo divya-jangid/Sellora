@@ -19,7 +19,6 @@ const createProduct = async (req, res) => {
             subCategory,
             brand,
             description,
-            stock,
             isFeatured
         } = req.body;
 
@@ -75,7 +74,6 @@ const createProduct = async (req, res) => {
             subCategory: subCategory || undefined,
             brand,
             description,
-            stock,
             image: uploadedImage.secure_url,
             isFeatured: isFeatured === true || isFeatured === 'true'
         });
@@ -401,13 +399,7 @@ const getAllProducts = async (req, res) => {
                     }))
                     .filter(product => product.variants.length > 0)
 
-                // PRODUCT STOCK CHECK
-                const isProductInStock = product => {
-                    return product.variants.some(
-                        variant =>
-                            Number(variant.availableQuantity) > 0
-                    )
-                }
+             
 
                 // SUBCATEGORY: VARIANT LEVEL PAGINATION
                 if (filter.subCategory) {
@@ -479,12 +471,6 @@ const getAllProducts = async (req, res) => {
                 } else {
                     // CATEGORY: IN STOCK FIRST, OUT OF STOCK AFTER
                     productsWithVariants.sort((a, b) => {
-                        const stockA = isProductInStock(a) ? 1 : 0
-                        const stockB = isProductInStock(b) ? 1 : 0
-
-                        if (stockA !== stockB) {
-                            return stockB - stockA
-                        }
 
                         let result = 0
 

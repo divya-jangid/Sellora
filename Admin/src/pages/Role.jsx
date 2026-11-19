@@ -409,10 +409,12 @@ function Role() {
 
                 {hasPermission('roles_create') && (
                     <button
+                        type="button"
                         onClick={handleOpenForm}
-                        className="w-full shrink-0 rounded-xl bg-purple-600 px-5 py-3 font-semibold text-white shadow-md transition hover:bg-purple-700 sm:w-auto"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 font-semibold text-white shadow-md shadow-indigo-200 transition hover:shadow-lg sm:w-auto"
                     >
-                        + Add Role
+                        <span className="text-xl">+</span>
+                        Add Role
                     </button>
                 )}
             </div>
@@ -688,11 +690,10 @@ function Role() {
                                                     return (
                                                         <label
                                                             key={permission}
-                                                            className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
-                                                                isChecked
+                                                            className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${isChecked
                                                                     ? 'border-purple-200 bg-purple-50'
                                                                     : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             <input
                                                                 type="checkbox"
@@ -703,11 +704,10 @@ function Role() {
                                                                 className="h-4 w-4 shrink-0 accent-purple-600"
                                                             />
 
-                                                            <span className={`break-all text-xs font-medium sm:text-sm ${
-                                                                isChecked
+                                                            <span className={`break-all text-xs font-medium sm:text-sm ${isChecked
                                                                     ? 'text-purple-800'
                                                                     : 'text-gray-600'
-                                                            }`}>
+                                                                }`}>
                                                                 {permission}
                                                             </span>
 
