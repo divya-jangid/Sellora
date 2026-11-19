@@ -21,6 +21,13 @@ app.use(cors({
 
 connectDB()
 
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Sellora Backend API is running!'
+    })
+})
+
 const adminRoute = require('./routes/adminRoute')
 const userRoute = require('./routes/userRoute')
 const roleRoute = require('./routes/roleRoute')
