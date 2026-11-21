@@ -16,8 +16,15 @@
     router.get('/public', getAllProducts)
     router.get('/featured', getFeaturedProducts);
 
-    router.put('/update/:id', adminAuth, checkPermission('products_edit'), updateProduct)
-    router.delete('/delete/:id',  adminAuth, checkPermission('products_delete'), deleteProduct)
+router.put(
+    '/update/:id',
+    adminAuth,
+    checkPermission('products_edit'),
+    upload.single('image'),
+    updateProduct
+)
+
+router.delete('/delete/:id',  adminAuth, checkPermission('products_delete'), deleteProduct)
 
     router.put(
         '/update-status/:id',

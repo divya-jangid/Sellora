@@ -735,17 +735,43 @@ const getFeaturedProducts = async (req, res) => {
 
 const updateProduct = async (req, res) => {
     try {
+
+        console.log('REQ FILE:', req.file)
+        
         const { id } = req.params;
 
         const updateData = { ...req.body };
 
+        // Check product exists
+        const existingProduct = await Product.findById(id);
+
+        if (!existingProduct) {
+            return res.status(404).json({
+                message: 'Product not found',
+                status: false
+            });
+        }
+
+        // Upload new image to Cloudinary
+        if (req.file) {
+            const imageData = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+            const uploadedImage = await cloudinary.uploader.upload(
+                imageData,
+                { folder: 'products' }
+            );
+
+            updateData.image = uploadedImage.secure_url;
+        }
+
+        // Handle featured boolean
         if (updateData.isFeatured !== undefined) {
             updateData.isFeatured =
                 updateData.isFeatured === true ||
                 updateData.isFeatured === 'true';
         }
 
-        // Generate new slug if product name changes
+        // Generate new slug if name changes
         if (updateData.name) {
             const baseSlug = updateData.name
                 .toLowerCase()
@@ -772,18 +798,14 @@ const updateProduct = async (req, res) => {
         const product = await Product.findByIdAndUpdate(
             id,
             updateData,
-            { new: true, runValidators: true }
+            {
+                new: true,
+                runValidators: true
+            }
         )
             .populate('category', 'name slug')
             .populate('subCategory', 'name slug')
-            .populate('brand','name')
-
-        if (!product) {
-            return res.status(404).json({
-                message: 'Product not found',
-                status: false
-            });
-        }
+            .populate('brand', 'name');
 
         return res.status(200).json({
             message: 'Product updated successfully',

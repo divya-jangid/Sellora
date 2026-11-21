@@ -305,7 +305,6 @@ const Product = () => {
 
             const res = await API.put(`/product/update-status/${item._id}`,
                 {},
-                { withCredentials: true }
             )
 
             await getProducts()
@@ -328,86 +327,71 @@ const Product = () => {
     }
 
     // CREATE OR UPDATE PRODUCT
+
     const handleSubmit = async (e) => {
-        e.preventDefault()
+        e.preventDefault();
 
         if (
             editId
                 ? !hasPermission('products_edit')
                 : !hasPermission('products_create')
         ) {
-            toast.error('You do not have permission to perform this action')
-            return
+            toast.error('You do not have permission to perform this action');
+            return;
         }
 
         if (!editId && !image) {
-            toast.error('Please select a product image')
-            return
+            toast.error('Please select a product image');
+            return;
         }
 
-        setLoading(true)
+        setLoading(true);
 
         try {
-            if (editId) {
-                const updateData = {
-                    name: form.name,
-                    category: form.category,
-                    subCategory: form.subcategory || undefined,
-                    brand: form.brand,
-                    description: form.description,
-                    isFeatured: form.isFeatured,
-                }
+            const formData = new FormData();
 
-                await API.put(
-                    `/product/update/${editId}`,
-                    updateData
-                )
+            formData.append('name', form.name);
+            formData.append('category', form.category);
+            formData.append('brand', form.brand);
+            formData.append('description', form.description);
+            formData.append('isFeatured', String(form.isFeatured));
 
-            } else {
-                const formData = new FormData()
-
-                formData.append('name', form.name)
-                formData.append('category', form.category)
-                formData.append('brand', form.brand)
-                formData.append('description', form.description)
-                formData.append('isFeatured', String(form.isFeatured))
-                formData.append('image', image)
-
-                if (form.subcategory) {
-                    formData.append('subCategory', form.subcategory)
-                }
-
-                await API.post(
-                    '/product/create',
-                    formData
-                )
+            if (form.subcategory) {
+                formData.append('subCategory', form.subcategory);
             }
 
-            await getProducts()
+            // Append image only if a new image is selected
+            if (image) {
+                formData.append('image', image);
+            }
 
-            setShowForm(false)
-            resetForm()
+            if (editId) {
+                await API.put(`/product/update/${editId}`, formData);
+            } else {
+                await API.post('/product/create', formData);
+            }
+
+            await getProducts();
+
+            setShowForm(false);
+            resetForm();
 
             toast.success(
                 editId
                     ? 'Product updated successfully'
                     : 'Product created successfully'
-            )
+            );
 
         } catch (err) {
-            console.log(
-                'SAVE PRODUCT ERROR:',
-                err.response?.data || err.message
-            )
-
-            toast.error(
-                err.response?.data?.message ||
-                'Something went wrong'
-            )
+            console.log('SAVE PRODUCT ERROR:', err.response?.data || err.message);
+            toast.error(err.response?.data?.message || 'Something went wrong');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
+
+    
+
 
     // DELETE PRODUCT
     const handleDelete = async (id) => {
@@ -482,7 +466,7 @@ const Product = () => {
                     </h1>
 
                     <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                        Manage your productsa and categories 
+                        Manage your productsa and categories
                     </p>
                 </div>
 
@@ -498,7 +482,7 @@ const Product = () => {
                 )}
             </div>
 
-            {/* ADD / EDIT PRODUCT MODAL */} 
+            {/* ADD / EDIT PRODUCT MODAL */}
             {showForm && (
                 <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm sm:p-4">
                     <div className="mx-auto my-2 max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-indigo-100 bg-white shadow-2xl sm:my-4 sm:max-h-[92vh]">
@@ -648,15 +632,15 @@ const Product = () => {
                                     Product Image
                                 </label>
 
+
                                 <input
                                     type="file"
                                     accept="image/*"
                                     required={!editId}
-                                    onChange={(e) =>
-                                        setImage(e.target.files?.[0] || null)
-                                    }
-                                    className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm"
+                                    onChange={(e) => setImage(e.target.files?.[0] || null)}
+                                    className="..."
                                 />
+
 
                                 {image && (
                                     <p className="mt-2 break-all text-sm text-green-700">
@@ -666,12 +650,13 @@ const Product = () => {
 
                                 {editId && (
                                     <p className="mt-2 text-xs text-slate-500">
-                                        Image replacement is not enabled yet. The current image will be kept.
+                                        Select a new image if you want to replace the current image.
+                                        Leave empty to keep the existing image.
                                     </p>
                                 )}
                             </div>
 
-                          
+
 
                             {/* FEATURED PRODUCT */}
                             <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
@@ -795,11 +780,10 @@ const Product = () => {
 
                                 <div>
                                     <p className="text-xs text-slate-500">Featured</p>
-                                    <p className={`mt-1 font-semibold ${
-                                        viewProduct.isFeatured
-                                            ? 'text-green-600'
-                                            : 'text-slate-500'
-                                    }`}>
+                                    <p className={`mt-1 font-semibold ${viewProduct.isFeatured
+                                        ? 'text-green-600'
+                                        : 'text-slate-500'
+                                        }`}>
                                         {viewProduct.isFeatured ? 'Yes' : 'No'}
                                     </p>
                                 </div>
@@ -952,7 +936,7 @@ const Product = () => {
                                             {item.brand?.name || 'N/A'}
                                         </td>
 
-                                       
+
                                         {/* FEATURED STATUS */}
                                         <td className="px-6 py-4">
                                             {item.isFeatured ? (
@@ -976,28 +960,25 @@ const Product = () => {
                                                         !hasPermission('products_edit')
                                                     }
                                                     onClick={() => handleStatusToggle(item)}
-                                                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                        item.status === 'active'
-                                                            ? 'bg-green-500'
-                                                            : 'bg-slate-300'
-                                                    }`}
+                                                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${item.status === 'active'
+                                                        ? 'bg-green-500'
+                                                        : 'bg-slate-300'
+                                                        }`}
                                                     aria-label={`Change ${item.name} status`}
                                                 >
                                                     <span
-                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${
-                                                            item.status === 'active'
-                                                                ? 'translate-x-6'
-                                                                : 'translate-x-1'
-                                                        }`}
+                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${item.status === 'active'
+                                                            ? 'translate-x-6'
+                                                            : 'translate-x-1'
+                                                            }`}
                                                     />
                                                 </button>
 
                                                 <span
-                                                    className={`text-xs font-semibold capitalize ${
-                                                        item.status === 'active'
-                                                            ? 'text-green-600'
-                                                            : 'text-slate-500'
-                                                    }`}
+                                                    className={`text-xs font-semibold capitalize ${item.status === 'active'
+                                                        ? 'text-green-600'
+                                                        : 'text-slate-500'
+                                                        }`}
                                                 >
                                                     {updatingStatus === item._id
                                                         ? 'Updating...'
