@@ -275,13 +275,28 @@ const getAllSubCategories = async (req, res) => {
 
 
 // UPDATE SUBCATEGORY
+
 const updateSubCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, category, description, image, status } = req.body;
+        const { name, category, description } = req.body;
 
         const updateData = {};
 
+        // Check subcategory exists
+        const existingSubCategory = await SubCategory.findOne({
+            _id: id,
+            isDeleted: false
+        });
+
+        if (!existingSubCategory) {
+            return res.status(404).json({
+                message: 'SubCategory not found',
+                status: false
+            });
+        }
+
+        // Handle name and slug
         if (name !== undefined) {
             if (!name.trim()) {
                 return res.status(400).json({
@@ -298,6 +313,7 @@ const updateSubCategory = async (req, res) => {
                 .replace(/^-|-$/g, '');
         }
 
+        // Handle category
         if (category !== undefined) {
             const parentCategory = await Category.findOne({
                 _id: category,
@@ -314,35 +330,38 @@ const updateSubCategory = async (req, res) => {
             updateData.category = category;
         }
 
+        // Handle description
         if (description !== undefined) {
             updateData.description = description;
         }
 
-        if (image !== undefined) {
-            updateData.image = image;
+        // Handle new image
+        if (req.file) {
+            const imageData = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+            const uploadedImage = await cloudinary.uploader.upload(
+                imageData,
+                { folder: 'subcategories' }
+            );
+
+            updateData.image = uploadedImage.secure_url;
         }
 
+        // Handle status
         if (status !== undefined) {
             updateData.status = status;
         }
 
-        const subCategory = await SubCategory.findOneAndUpdate(
-            { _id: id, isDeleted: false },
+        const subCategory = await SubCategory.findByIdAndUpdate(
+            id,
             updateData,
             { new: true, runValidators: true }
         ).populate('category', 'name');
 
-        if (!subCategory) {
-            return res.status(404).json({
-                message: 'SubCategory not found',
-                status: false
-            });
-        }
-
         return res.status(200).json({
             message: 'SubCategory updated successfully',
             status: true,
-            data:subCategory
+            data: subCategory
         });
 
     } catch (error) {
