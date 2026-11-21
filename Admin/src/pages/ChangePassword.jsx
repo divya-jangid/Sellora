@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { toast } from 'react-hot-toast'
 import {
     LockKeyhole,
@@ -68,13 +68,10 @@ const ChangePassword = () => {
         try {
             setLoading(true)
 
-            const res = await axios.put(
-                'http://localhost:8000/admin/change-password',
-                {
+            const res = await API.put('/admin/change-password',{
                     currentPassword: form.currentPassword,
                     newPassword: form.newPassword
-                },
-                { withCredentials: true }
+                }
             )
 
             if (res.data.status) {

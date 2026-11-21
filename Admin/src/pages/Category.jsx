@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -62,10 +62,7 @@ const Category = () => {
     // GET USER PERMISSIONS
     const getUserPermissions = async () => {
         try {
-            const response = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
-            )
+            const response = await API.get('/user/check-user')
 
             const user = response.data.user
 
@@ -107,10 +104,7 @@ const Category = () => {
         try {
             setLoading(true)
 
-            const response = await axios.get(
-                'http://localhost:8000/category/get-all',
-                {
-                    withCredentials: true,
+            const response = await API.get('/category/get-all',{
                     params: {
                         page: currentPage,
                         limit,
@@ -224,11 +218,7 @@ const Category = () => {
         try {
             setUpdatingStatus(item._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/category/status/${item._id}`,
-                {},
-                { withCredentials: true }
-            )
+            const res = await API.put(`/category/status/${item._id}`)
 
             await getCategory()
 
@@ -277,16 +267,12 @@ const Category = () => {
             setSaving(true)
 
             if (editCategory) {
-                await axios.put(
-                    `http://localhost:8000/category/update/${editCategory._id}`,
-                    formData,
-                    { withCredentials: true }
-                )
+                await API.put(
+                    `/category/update/${editCategory._id}`,formData)
             } else {
-                await axios.post(
-                    'http://localhost:8000/category/create',
+                await API.post(
+                    '/category/create',
                     formData,
-                    { withCredentials: true }
                 )
             }
 
@@ -324,10 +310,7 @@ const Category = () => {
         }
 
         try {
-            await axios.delete(
-                `http://localhost:8000/category/delete/${id}`,
-                { withCredentials: true }
-            )
+            await API.delete(`/category/delete/${id}`)
 
             toast.success('Category deleted successfully')
 

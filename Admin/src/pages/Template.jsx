@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import TextEditor from '../components/TextEditor';
-import axios from 'axios';
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast';
 import {
   LuSquarePen,
@@ -48,9 +48,8 @@ const Template = () => {
   // CHECK USER PERMISSIONS
   const checkUser = async () => {
     try {
-      const res = await axios.get(
-        'http://localhost:8000/user/check-user',
-        { withCredentials: true }
+      const res = await API.get(
+        '/user/check-user',
       );
 
       const currentUser = res.data.user;
@@ -80,10 +79,9 @@ const Template = () => {
   // GET TEMPLATES
   const getTemplates = async () => {
     try {
-      const res = await axios.get(
-        'http://localhost:8000/template/get-all',
+      const res = await API.get(
+        '/template/get-all',
         {
-          withCredentials: true,
           params: {
             page: currentPage,
             limit,
@@ -166,19 +164,17 @@ const Template = () => {
 
     try {
       if (editId) {
-        await axios.put(
-          `http://localhost:8000/template/update/${editId}`,
+        await API.put(
+          `/template/update/${editId}`,
           form,
-          { withCredentials: true }
         );
 
         toast.success('Template updated successfully');
 
       } else {
-        await axios.post(
-          'http://localhost:8000/template/create',
+        await API.post(
+          '/template/create',
           form,
-          { withCredentials: true }
         );
 
         toast.success('Template created successfully');
@@ -221,9 +217,8 @@ const Template = () => {
     }
 
     try {
-      await axios.delete(
-        `http://localhost:8000/template/delete/${id}`,
-        { withCredentials: true }
+      await API.delete(
+        `/template/delete/${id}`,
       );
 
       toast.success('Template deleted successfully');
@@ -286,14 +281,13 @@ const Template = () => {
     try {
       setSending(true);
 
-      const res = await axios.post(
-        'http://localhost:8000/template/send-email',
+      const res = await API.post(
+        '/template/send-email',
         {
           templateId: selectedTemplate._id,
           email: recipientEmail.trim(),
           emailType: emailType
         },
-        { withCredentials: true }
       );
 
       toast.success(res.data.message || 'Email sent successfully');

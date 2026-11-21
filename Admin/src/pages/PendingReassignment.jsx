@@ -1,9 +1,8 @@
 
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { toast } from 'react-hot-toast'
 
-const API = 'http://localhost:8000'
 
 const PendingReassignment = () => {
 
@@ -16,9 +15,8 @@ const PendingReassignment = () => {
     // GET PENDING DELIVERIES
     const getPendingReassignment = async () => {
         try {
-            const res = await axios.get(
-                `${API}/deliverypartner/pending-reassignment`,
-                { withCredentials: true }
+            const res = await API.get(
+                '/deliverypartner/pending-reassignment'
             )
 
             setDeliveries(res.data.deliveries || [])
@@ -35,9 +33,8 @@ const PendingReassignment = () => {
     // GET AVAILABLE PARTNERS
     const getAvailablePartners = async () => {
         try {
-            const res = await axios.get(
-                `${API}/deliverypartner/get-all`,
-                { withCredentials: true }
+            const res = await API.get(
+                '/deliverypartner/get-all'
             )
 
             setPartners(res.data.deliveryPartners || [])
@@ -67,8 +64,7 @@ const PendingReassignment = () => {
         try {
             setAssigning(delivery._id)
 
-            await axios.post(
-                `${API}/delivery/assign`,
+            await API.post('/delivery/assign',
                 {
                     orderId: delivery.order?._id,
                     deliveryPartnerId: partnerId

@@ -1,5 +1,5 @@
 
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import React, { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import {
@@ -60,9 +60,8 @@ const Store = () => {
     // CHECK USER PERMISSIONS
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             const currentUser = res.data.user
@@ -104,8 +103,8 @@ const Store = () => {
         try {
             setLoading(true)
 
-            const res = await axios.get(
-                'http://localhost:8000/store/get-all',
+            const res = await API.get(
+                '/store/get-all',
                 {
                     params: {
                         page: currentPage,
@@ -113,8 +112,7 @@ const Store = () => {
                         search,
                         sortBy,
                         order
-                    },
-                    withCredentials: true
+                    }
                 }
             )
 
@@ -138,9 +136,8 @@ const Store = () => {
     // GET ONLY STORE MANAGERS
     const getUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/get-all',
             )
 
             const allUsers = Array.isArray(res.data.data)
@@ -447,16 +444,14 @@ const Store = () => {
             let res
 
             if (editId) {
-                res = await axios.put(
-                    `http://localhost:8000/store/update/${editId}`,
+                res = await API.put(
+                    `/store/update/${editId}`,
                     form,
-                    { withCredentials: true }
                 )
             } else {
-                res = await axios.post(
-                    'http://localhost:8000/store/create',
+                res = await API.post(
+                    '/store/create',
                     form,
-                    { withCredentials: true }
                 )
             }
 
@@ -539,10 +534,9 @@ const Store = () => {
         try {
             setUpdatingStatus(stores._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/store/update-status/${stores._id}`,
+            const res = await API.put(
+                `/store/update-status/${stores._id}`,
                 {},
-                { withCredentials: true }
             )
 
             if (!res.data.status) {
@@ -588,9 +582,8 @@ const Store = () => {
         }
 
         try {
-            const res = await axios.delete(
-                `http://localhost:8000/store/delete/${id}`,
-                { withCredentials: true }
+            const res = await API.delete(
+                `/store/delete/${id}`,
             )
 
             if (!res.data.status) {

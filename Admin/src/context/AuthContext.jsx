@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import {toast} from 'react-hot-toast'
 
 const AuthContext = createContext()
@@ -12,10 +12,7 @@ export const AuthProvider = ({ children }) => {
 
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
-            )
+            const res = await API.get('/user/check-user')
 
             if (res.data.status && res.data.user) {
                 setUser(res.data.user)
@@ -33,10 +30,9 @@ export const AuthProvider = ({ children }) => {
     // Logout
    const logout = async () => {
     try {
-        const res = await axios.post(
-            'http://localhost:8000/admin/logout',
+        const res = await API.post(
+            '/admin/logout',
             {},
-            { withCredentials: true }
         )
 
         if (res.data.status) {

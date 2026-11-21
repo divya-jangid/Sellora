@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -59,9 +59,8 @@ const User = () => {
     // Current logged-in user
     const getCurrentUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             setCurrentUser(res.data.user)
@@ -97,8 +96,8 @@ const User = () => {
     // Get All Users - Backend Search, Sorting, Pagination
     const getUsers = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/get-all',
+            const res = await API.get(
+                '/user/get-all',
                 {
                     withCredentials: true,
                     params: {
@@ -128,9 +127,8 @@ const User = () => {
     // Get All Roles
     const getRoles = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/role/get-role',
-                { withCredentials: true }
+            const res = await API.get(
+                '/role/get-role',
             )
 
             setRoles(res.data.data || [])
@@ -184,10 +182,9 @@ const User = () => {
         try {
             setUpdatingStatus(user._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/user/update-status/${user._id}`,
+            const res = await API.put(
+                `/user/update-status/${user._id}`,
                 {},
-                { withCredentials: true }
             )
 
             const updatedStatus = res.data.data.status
@@ -214,9 +211,8 @@ const User = () => {
     // Delete User
     const handleDelete = async (id) => {
         try {
-            await axios.delete(
-                `http://localhost:8000/user/delete/${id}`,
-                { withCredentials: true }
+            await API.delete(
+                `/user/delete/${id}`,
             )
 
             toast.success('User deleted successfully')
@@ -261,16 +257,14 @@ const User = () => {
             let res
 
             if (editUser) {
-                res = await axios.put(
-                    `http://localhost:8000/user/update/${editUser._id}`,
+                res = await API.put(
+                    `/user/update/${editUser._id}`,
                     userData,
-                    { withCredentials: true }
                 )
             } else {
-                res = await axios.post(
-                    'http://localhost:8000/user/create',
+                res = await API.post(
+                    '/user/create',
                     userData,
-                    { withCredentials: true }
                 )
             }
 

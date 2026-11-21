@@ -1,8 +1,8 @@
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
+import API from '../api/axiosInstance'
 
 function Inventory() {
     const navigate = useNavigate()
@@ -55,10 +55,7 @@ function Inventory() {
     // CHECK USER
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
-            )
+            const res = await API.get('/user/check-user')
 
             const user = res.data.user
 
@@ -88,8 +85,7 @@ function Inventory() {
     // GET INVENTORY STORES
     const getStoresInventory = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/inventory/get-all',
+            const res = await API.get('/inventory/get-all',
                 {
                     params: {
                         page: currentPage,
@@ -97,8 +93,7 @@ function Inventory() {
                         search,
                         sortBy,
                         order
-                    },
-                    withCredentials: true
+                    }
                 }
             )
 
@@ -115,10 +110,7 @@ function Inventory() {
     // GET ALL STORES
     const getStores = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/store/get-all',
-                { withCredentials: true }
-            )
+            const res = await API.get('/store/get-all')
 
             setStores(res.data.data || [])
 
@@ -131,10 +123,7 @@ function Inventory() {
     // GET ALL PRODUCTS
     const getProducts = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/product/get-all',
-                { withCredentials: true }
-            )
+            const res = await API.get('/product/get-all')
 
             const possibleProducts = [
                 res.data?.data,
@@ -159,10 +148,7 @@ function Inventory() {
     // GET ALL VARIANTS
     const getVariants = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/productvariant/get-all',
-                { withCredentials: true }
-            )
+            const res = await API.get('/productvariant/get-all')
 
             const possibleVariants = [
                 res.data?.data,
@@ -328,11 +314,7 @@ function Inventory() {
                 maxStockLevel
             }
 
-            await axios.post(
-                'http://localhost:8000/inventory/create',
-                data,
-                { withCredentials: true }
-            )
+            await API.post('/inventory/create',data)
 
             toast.success('Inventory added successfully')
 

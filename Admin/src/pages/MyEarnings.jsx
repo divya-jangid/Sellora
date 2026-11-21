@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast';
 import {
     Wallet,
@@ -13,7 +13,6 @@ import {
     ChevronRight,
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/delivery';
 
 const MyEarnings = () => {
     const [earnings, setEarnings] = useState({
@@ -48,10 +47,9 @@ const MyEarnings = () => {
             try {
                 setTableLoading(true);
 
-                const res = await axios.get(
-                    `${API}/my-earnings`,
-                    {
-                        withCredentials: true,
+                const res = await API.get(
+                    'delivery/my-earnings',
+                        {
                         params: {
                             startDate: startDate || undefined,
                             endDate: endDate || undefined,

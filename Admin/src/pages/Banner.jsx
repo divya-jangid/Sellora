@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -8,7 +8,6 @@ import {
     LuTrash2
 } from 'react-icons/lu'
 
-const API = 'http://localhost:8000/banner'
 
 const Banner = () => {
 
@@ -39,10 +38,7 @@ const Banner = () => {
     // GET USER PERMISSIONS
     const getUserPermissions = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
-            )
+            const res = await API.get('/user/check-user')
 
             if (res.data.status) {
                 const user = res.data.user
@@ -81,9 +77,8 @@ const Banner = () => {
     // GET ALL BANNERS
     const getBanners = async () => {
         try {
-            const res = await axios.get(
-                `${API}/get-all`,
-                { withCredentials: true }
+            const res = await API.get(
+                'banner/get-all',
             )
 
             setBanners(
@@ -197,19 +192,17 @@ const Banner = () => {
             }
 
             if (editId) {
-                await axios.put(
-                    `${API}/update/${editId}`,
+                await API.put(
+                    `/banner/update/${editId}`,
                     formData,
-                    { withCredentials: true }
                 )
 
                 toast.success('Banner updated successfully')
 
             } else {
-                await axios.post(
-                    `${API}/create`,
+                await API.post(
+                    `/banner/create`,
                     formData,
-                    { withCredentials: true }
                 )
 
                 toast.success('Banner created successfully')
@@ -251,10 +244,9 @@ const Banner = () => {
         try {
             setStatusLoading(item._id)
 
-            const res = await axios.put(
-                `${API}/update-status/${item._id}`,
+            const res = await API.put(
+                `/banner/update-status/${item._id}`,
                 { status: newStatus },
-                { withCredentials: true }
             )
 
             setBanners(prev =>
@@ -294,9 +286,8 @@ const Banner = () => {
         }
 
         try {
-            await axios.delete(
-                `${API}/delete/${id}`,
-                { withCredentials: true }
+            await API.delete(
+                `/banner/delete/${id}`,
             )
 
             toast.success('Banner deleted successfully')

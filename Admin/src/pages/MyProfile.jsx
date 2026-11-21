@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { toast } from 'react-hot-toast'
 import {
     UserRound,
@@ -36,10 +36,7 @@ const MyProfile = () => {
     // GET MY PROFILE
     const getMyProfile = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/admin/my-profile',
-                { withCredentials: true }
-            )
+            const res = await API.get('/admin/my-profile')
 
             if (res.data.status) {
                 setProfile(res.data.data)
@@ -82,11 +79,7 @@ const MyProfile = () => {
         try {
             setUpdateLoading(true)
 
-            const res = await axios.put(
-                'http://localhost:8000/admin/my-profile',
-                form,
-                { withCredentials: true }
-            )
+            const res = await API.put('/admin/my-profile',form)
 
             if (res.data.status) {
                 setProfile({

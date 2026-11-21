@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'react-hot-toast'
 
@@ -17,7 +17,6 @@ const Dashboard = () => {
     const [availabilityLoading, setAvailabilityLoading] = useState(false)
     const [showLowStock, setShowLowStock] = useState(false)
 
-    const DELIVERY_PARTNER_API = 'http://localhost:8000/deliverypartner'
 
     const normalizeRole = (role = '') => {
         return role.toLowerCase().trim().replace(/[\s_-]/g, '')
@@ -42,10 +41,7 @@ const Dashboard = () => {
                 setLoading(true)
                 setError('')
 
-                const dashboardRes = await axios.get(
-                    'http://localhost:8000/dashboard/stats',
-                    { withCredentials: true }
-                )
+                const dashboardRes = await API.get('/dashboard/stats')
 
                 if (dashboardRes.data.success || dashboardRes.data.status) {
                     setDashboardData(dashboardRes.data.data || {})
@@ -77,10 +73,8 @@ const Dashboard = () => {
 
         const fetchAvailability = async () => {
             try {
-                const res = await axios.get(
-                    `${DELIVERY_PARTNER_API}/my-availability`,
-                    { withCredentials: true }
-                )
+                const res = await API.get(
+                    `deliverypartner/my-availability`)
 
                 const data = res.data.data || res.data
 
@@ -101,11 +95,8 @@ const Dashboard = () => {
         try {
             setAvailabilityLoading(true)
 
-            const res = await axios.put(
-                `${DELIVERY_PARTNER_API}/availability-status`,
-                { isAvailable: !isAvailable },
-                { withCredentials: true }
-            )
+            const res = await API.put(`deliverypartner/availability-status`,
+                { isAvailable: !isAvailable })
 
             if (res.data.success || res.data.status) {
                 const data = res.data.data || res.data
@@ -354,9 +345,8 @@ const Dashboard = () => {
                                     : 'You are currently unavailable for new delivery orders.'}
                             </p>
 
-                            <p className={`mt-2 text-sm font-semibold ${
-                                isAvailable ? 'text-emerald-600' : 'text-rose-600'
-                            }`}>
+                            <p className={`mt-2 text-sm font-semibold ${isAvailable ? 'text-emerald-600' : 'text-rose-600'
+                                }`}>
                                 ● {isAvailable ? 'Available' : 'Unavailable'}
                             </p>
 
@@ -366,11 +356,10 @@ const Dashboard = () => {
                             type="button"
                             onClick={handleAvailability}
                             disabled={availabilityLoading}
-                            className={`w-full sm:w-auto shrink-0 rounded-lg px-5 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                isAvailable
+                            className={`w-full sm:w-auto shrink-0 rounded-lg px-5 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${isAvailable
                                     ? 'bg-rose-500 hover:bg-rose-600'
                                     : 'bg-emerald-600 hover:bg-emerald-700'
-                            }`}
+                                }`}
                         >
                             {availabilityLoading
                                 ? 'Please wait...'
@@ -413,15 +402,13 @@ const Dashboard = () => {
                                     return (
                                         <div
                                             key={item.title}
-                                            className={`min-w-0 rounded-xl border bg-white p-4 sm:p-5 shadow-sm transition ${
-                                                canExpand
+                                            className={`min-w-0 rounded-xl border bg-white p-4 sm:p-5 shadow-sm transition ${canExpand
                                                     ? 'cursor-pointer border-slate-200 hover:-translate-y-1 hover:shadow-md'
                                                     : 'border-slate-200'
-                                            } ${
-                                                isLowStockCard && showLowStock
+                                                } ${isLowStockCard && showLowStock
                                                     ? 'border-amber-400 ring-2 ring-amber-100'
                                                     : ''
-                                            }`}
+                                                }`}
                                             onClick={
                                                 canExpand
                                                     ? () => setShowLowStock(prev => !prev)

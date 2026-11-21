@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import {
     LuSquarePen,
     LuTrash2,
@@ -145,9 +145,8 @@ function Role() {
     // CHECK CURRENT USER
     const getCurrentUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             const user = res.data.user || res.data.data || res.data
@@ -180,9 +179,8 @@ function Role() {
     // GET ALL ROLES
     const getRole = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/role/get-role',
-                { withCredentials: true }
+            const res = await API.get(
+                '/role/get-role',
             )
 
             setRole(res.data.data || [])
@@ -294,12 +292,11 @@ function Role() {
             setLoading(true)
 
             if (editingRoleId) {
-                const res = await axios.put(
-                    `http://localhost:8000/role/update/${editingRoleId}`,
+                const res = await API.put(
+                    `/role/update/${editingRoleId}`,
                     {
                         permissions: selectedPermissions
-                    },
-                    { withCredentials: true }
+                    }
                 )
 
                 toast.success(
@@ -308,13 +305,12 @@ function Role() {
                 )
 
             } else {
-                const res = await axios.post(
-                    'http://localhost:8000/role/create',
+                const res = await API.post(
+                    '/role/create',
                     {
                         name: roleName.trim(),
                         permissions: selectedPermissions
-                    },
-                    { withCredentials: true }
+                    }
                 )
 
                 toast.success(
@@ -367,9 +363,8 @@ function Role() {
         }
 
         try {
-            const res = await axios.delete(
-                `http://localhost:8000/role/delete/${roleId}`,
-                { withCredentials: true }
+            const res = await API.delete(
+                `/role/delete/${roleId}`
             )
 
             toast.success(

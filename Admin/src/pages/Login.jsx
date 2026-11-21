@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { toast } from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 
@@ -27,13 +27,7 @@ const Login = () => {
         try {
             setLoading(true)
 
-            const res = await axios.post(
-                'http://localhost:8000/admin/login',
-                form,
-                {
-                    withCredentials: true
-                }
-            )
+            const res = await API.post('/admin/login',form)
 
             console.log('resss', res)
 
@@ -46,7 +40,7 @@ const Login = () => {
                 await checkUser()
 
                 navigate('/dashboard')
-
+                
             } else {
                 toast.error(res.data.message || 'Access denied')
             }

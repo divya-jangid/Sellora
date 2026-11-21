@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -53,9 +53,8 @@ const Subcategory = () => {
     // CHECK USER AND PERMISSIONS
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             const user = res.data.user
@@ -95,10 +94,9 @@ const Subcategory = () => {
     // GET CATEGORIES
     const getCategories = async () => {
         try {
-            const result = await axios.get(
-                'http://localhost:8000/category/get-all',
+            const result = await API.get(
+                '/category/get-all',
                 {
-                    withCredentials: true,
                     params: {
                         page: 1,
                         limit: 1000
@@ -118,10 +116,9 @@ const Subcategory = () => {
         try {
             setLoading(true)
 
-            const resp = await axios.get(
-                'http://localhost:8000/subcategory/get-all',
+            const resp = await API.get(
+                '/subcategory/get-all',
                 {
-                    withCredentials: true,
                     params: {
                         page: currentPage,
                         limit,
@@ -273,18 +270,16 @@ const Subcategory = () => {
             setLoading(true)
 
             if (editId) {
-                await axios.put(
-                    `http://localhost:8000/subcategory/update/${editId}`,
+                await API.put(
+                    `/subcategory/update/${editId}`,
                     formData,
-                    { withCredentials: true }
                 )
 
                 toast.success('Subcategory updated successfully')
             } else {
-                await axios.post(
-                    'http://localhost:8000/subcategory/create',
+                await API.post(
+                    '/subcategory/create',
                     formData,
-                    { withCredentials: true }
                 )
 
                 toast.success('Subcategory created successfully')
@@ -322,9 +317,8 @@ const Subcategory = () => {
         }
 
         try {
-            await axios.delete(
-                `http://localhost:8000/subcategory/delete/${id}`,
-                { withCredentials: true }
+            await API.delete(
+                `/subcategory/delete/${id}`,
             )
 
             toast.success('Subcategory deleted successfully')
@@ -358,10 +352,9 @@ const Subcategory = () => {
         try {
             setUpdatingStatus(item._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/subcategory/status/${item._id}`,
+            const res = await API.put(
+                `/subcategory/status/${item._id}`,
                 {},
-                { withCredentials: true }
             )
 
             await getSubcategories()

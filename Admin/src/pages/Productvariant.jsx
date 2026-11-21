@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -72,9 +72,8 @@ const Productvariant = () => {
     // CHECK USER PERMISSIONS
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             const user = res.data.user
@@ -115,9 +114,8 @@ const Productvariant = () => {
     // GET PRODUCTS
     const getProducts = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/product/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/product/get-all',
             )
 
             const products = Array.isArray(res.data.data)
@@ -134,10 +132,9 @@ const Productvariant = () => {
     // GET PRODUCT VARIANTS
     const getProductvariant = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/productvariant/get-all',
+            const res = await API.get(
+                '/productvariant/get-all',
                 {
-                    withCredentials: true,
                     params: {
                         page: currentPage,
                         limit,
@@ -239,10 +236,9 @@ const Productvariant = () => {
         try {
             setUpdatingStatus(item._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/productvariant/update-status/${item._id}`,
+            const res = await API.put(
+                `/productvariant/update-status/${item._id}`,
                 {},
-                { withCredentials: true }
             )
 
             if (!res.data.status) {
@@ -284,9 +280,8 @@ const Productvariant = () => {
         }
 
         try {
-            const res = await axios.delete(
-                `http://localhost:8000/productvariant/delete/${id}`,
-                { withCredentials: true }
+            const res = await API.delete(
+                `/productvariant/delete/${id}`,
             )
 
             toast.success(res.data.message || 'Variant deleted successfully.')
@@ -471,16 +466,14 @@ const Productvariant = () => {
             let res
 
             if (editId) {
-                res = await axios.put(
-                    `http://localhost:8000/productvariant/update/${editId}`,
+                res = await API.put(
+                    `/productvariant/update/${editId}`,
                     formData,
-                    { withCredentials: true }
                 )
             } else {
-                res = await axios.post(
-                    'http://localhost:8000/productvariant/create',
+                res = await API.post(
+                    '/productvariant/create',
                     formData,
-                    { withCredentials: true }
                 )
             }
 

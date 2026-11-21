@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -55,10 +55,7 @@ const Product = () => {
     // GET LOGGED-IN USER AND PERMISSIONS
     const getUserPermissions = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
-            )
+            const res = await API.get('/user/check-user')
 
             if (res.data.status) {
                 const user = res.data.user
@@ -122,10 +119,9 @@ const Product = () => {
     // GET ALL PRODUCTS WITH BACKEND SEARCH, SORTING AND PAGINATION
     const getProducts = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/product/get-all',
+            const res = await API.get(
+                '/product/get-all',
                 {
-                    withCredentials: true,
                     params: {
                         page: currentPage,
                         limit,
@@ -157,9 +153,8 @@ const Product = () => {
     // GET ALL CATEGORIES
     const getCategory = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/category/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/category/get-all',
             )
 
             setCategory(
@@ -178,9 +173,8 @@ const Product = () => {
     // GET ALL SUBCATEGORIES
     const getSubcategory = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/subcategory/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/subcategory/get-all',
             )
 
             setSubcategory(
@@ -199,9 +193,8 @@ const Product = () => {
     // GET BRANDS
     const getBrand = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/brand/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/brand/get-all',
             )
 
             setBrand(
@@ -310,8 +303,7 @@ const Product = () => {
         try {
             setUpdatingStatus(item._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/product/update-status/${item._id}`,
+            const res = await API.put(`/product/update-status/${item._id}`,
                 {},
                 { withCredentials: true }
             )
@@ -366,10 +358,9 @@ const Product = () => {
                     isFeatured: form.isFeatured,
                 }
 
-                await axios.put(
-                    `http://localhost:8000/product/update/${editId}`,
-                    updateData,
-                    { withCredentials: true }
+                await API.put(
+                    `/product/update/${editId}`,
+                    updateData
                 )
 
             } else {
@@ -386,10 +377,9 @@ const Product = () => {
                     formData.append('subCategory', form.subcategory)
                 }
 
-                await axios.post(
-                    'http://localhost:8000/product/create',
-                    formData,
-                    { withCredentials: true }
+                await API.post(
+                    '/product/create',
+                    formData
                 )
             }
 
@@ -427,9 +417,8 @@ const Product = () => {
         }
 
         try {
-            await axios.delete(
-                `http://localhost:8000/product/delete/${id}`,
-                { withCredentials: true }
+            await API.delete(
+                `/product/delete/${id}`,
             )
 
             if (product.length === 1 && currentPage > 1) {

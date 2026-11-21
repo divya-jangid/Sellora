@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import toast from 'react-hot-toast'
 import {
     LuEye,
@@ -52,9 +52,8 @@ const Brand = () => {
     // CHECK USER AND PERMISSIONS
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             const user = res.data.user
@@ -100,10 +99,9 @@ const Brand = () => {
     // GET ALL BRANDS
     const getBrands = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/brand/get-all',
+            const res = await API.get(
+                '/brand/get-all',
                 {
-                    withCredentials: true,
                     params: {
                         page: currentPage,
                         limit,
@@ -223,9 +221,8 @@ const Brand = () => {
         }
 
         try {
-            await axios.delete(
-                `http://localhost:8000/brand/delete/${id}`,
-                { withCredentials: true }
+            await API.delete(
+                `/brand/delete/${id}`,
             )
 
             toast.success('Brand deleted successfully!')
@@ -255,10 +252,9 @@ const Brand = () => {
         try {
             setUpdatingStatus(brand._id)
 
-            const res = await axios.put(
-                `http://localhost:8000/brand/update-status/${brand._id}`,
+            const res = await API.put(
+                `/brand/update-status/${brand._id}`,
                 {},
-                { withCredentials: true }
             )
 
             await getBrands()
@@ -321,16 +317,14 @@ const Brand = () => {
             }
 
             if (editId) {
-                await axios.put(
-                    `http://localhost:8000/brand/update/${editId}`,
+                await API.put(
+                    `/brand/update/${editId}`,
                     formData,
-                    { withCredentials: true }
                 )
             } else {
-                await axios.post(
-                    'http://localhost:8000/brand/create',
+                await API.post(
+                    '/brand/create',
                     formData,
-                    { withCredentials: true }
                 )
             }
 

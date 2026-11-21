@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import axios from 'axios'
+import API from '../api/axiosInstance';
 import { toast } from 'react-hot-toast'
 import {
     LuEye,
@@ -76,9 +76,8 @@ function StoreInventory() {
     // CHECK USER
     const checkUser = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/user/check-user',
-                { withCredentials: true }
+            const res = await API.get(
+                '/user/check-user',
             )
 
             const user = res.data.user
@@ -116,8 +115,8 @@ function StoreInventory() {
     // GET INVENTORY / STORES
     const getInventory = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/inventory/get-all',
+            const res = await API.get(
+                '/inventory/get-all',
                 {
                     params: {
                         page: currentPage,
@@ -129,7 +128,6 @@ function StoreInventory() {
                             storeId: selectedStoreId
                         })
                     },
-                    withCredentials: true
                 }
             )
 
@@ -158,9 +156,8 @@ function StoreInventory() {
     // GET STORES
     const getStores = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/store/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/store/get-all',
             )
 
             setStores(res.data.data || [])
@@ -175,9 +172,8 @@ function StoreInventory() {
     // GET PRODUCTS
     const getProducts = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/product/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/product/get-all'
             )
 
             console.log('PRODUCT API RESPONSE:', res.data)
@@ -211,9 +207,8 @@ function StoreInventory() {
     // GET PRODUCT VARIANTS
     const getVariants = async () => {
         try {
-            const res = await axios.get(
-                'http://localhost:8000/productvariant/get-all',
-                { withCredentials: true }
+            const res = await API.get(
+                '/productvariant/get-all',
             )
 
             console.log('VARIANT API RESPONSE:', res.data)
@@ -432,16 +427,14 @@ function StoreInventory() {
             }
 
             if (editId) {
-                await axios.put(
-                    `http://localhost:8000/inventory/update/${editId}`,
+                await API.put(
+                    `/inventory/update/${editId}`,
                     data,
-                    { withCredentials: true }
                 )
             } else {
-                await axios.post(
-                    'http://localhost:8000/inventory/create',
+                await API.post(
+                    '/inventory/create',
                     data,
-                    { withCredentials: true }
                 )
             }
 
@@ -500,9 +493,8 @@ function StoreInventory() {
         if (!confirmed) return
 
         try {
-            await axios.delete(
-                `http://localhost:8000/inventory/delete/${id}`,
-                { withCredentials: true }
+            await API.delete(
+                `/inventory/delete/${id}`,
             )
 
             toast.success('Inventory deleted successfully')

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import API from '../api/axiosInstance'
 import { toast } from 'react-hot-toast'
 import {
   ShoppingBag,
@@ -75,9 +75,7 @@ function Order() {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const res = await axios.get(`${USER_API}/check-user`, {
-          withCredentials: true
-        })
+        const res = await API.get('user/check-user')
 
         if (res.data.status) {
           setUser(res.data.user)
@@ -99,8 +97,7 @@ function Order() {
   // FETCH ADMIN ORDERS WITH SEARCH, SORT AND PAGINATION
   const fetchAdminOrders = async () => {
     try {
-      const res = await axios.get(`${ORDER_API}/get-all`, {
-        withCredentials: true,
+      const res = await API.get('order/get-all',{
         params: {
           search: search.trim(),
           sort,
@@ -135,9 +132,7 @@ function Order() {
   // FETCH DELIVERY PARTNER'S DELIVERIES
   const fetchMyDeliveries = async () => {
     try {
-      const res = await axios.get(`${DELIVERY_API}/my-deliveries`, {
-        withCredentials: true
-      })
+      const res = await API.get('delivery/my-deliveries')
 
       console.log('MY DELIVERIES:', res.data)
 
@@ -233,12 +228,7 @@ function Order() {
       setPartnersLoading(true)
       setPartners([])
 
-      const res = await axios.get(
-        `${DELIVERY_API}/available-partners`,
-        {
-          withCredentials: true
-        }
-      )
+      const res = await API.get('delivery/available-partners' )
 
       console.log('AVAILABLE PARTNERS:', res.data)
 
@@ -297,14 +287,10 @@ function Order() {
     try {
       setAssignLoading(true)
 
-      const res = await axios.post(
-        `${DELIVERY_API}/assign`,
+      const res = await API.post('delivery/assign',
         {
           orderId: assignOrder._id,
           deliveryPartnerId: selectedPartnerId
-        },
-        {
-          withCredentials: true
         }
       )
 
@@ -355,10 +341,7 @@ function Order() {
         return
       }
 
-      const res = await axios.get(
-        `${ORDER_API}/admin-details/${order._id}`,
-        { withCredentials: true }
-      )
+      const res = await API.get(`order/admin-details/${order._id}`)
 
       if (res.data.status) {
         setSelectedOrder(res.data.order)
@@ -393,14 +376,10 @@ function Order() {
 
       setStatusLoading(true)
 
-      const res = await axios.put(
-        `${DELIVERY_API}/my-delivery-status`,
+      const res = await API.put(`delivery/my-delivery-status`,
         {
           deliveryId,
           deliveryStatus
-        },
-        {
-          withCredentials: true
         }
       )
 
@@ -464,14 +443,10 @@ function Order() {
 
       setOtpLoading(true)
 
-      const res = await axios.post(
-        `${DELIVERY_API}/verify-delivery-otp`,
+      const res = await API.post('delivery/verify-delivery-otp',
         {
           deliveryId,
           otp
-        },
-        {
-          withCredentials: true
         }
       )
 

@@ -21,7 +21,7 @@ import {
     Wallet
 } from 'lucide-react'
 
-import axios from 'axios'
+import API from '../api/axiosInstance'
 
 const Sidebar = () => {
 
@@ -38,10 +38,7 @@ const Sidebar = () => {
     useEffect(() => {
         const checkUser = async () => {
             try {
-                const res = await axios.get(
-                    'http://localhost:8000/user/check-user',
-                    { withCredentials: true }
-                )
+                const res = await API.get('/user/check-user')
 
                 const loggedInUser = res.data.user
 
