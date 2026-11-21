@@ -620,7 +620,7 @@ const Subcategory = () => {
                                                     disabled={
                                                         !hasPermission('subcategories_edit') ||
                                                         updatingStatus === item._id
-                                                    }
+                                                                                                                                                                                      }
                                                     title="Change subcategory status"
                                                     className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
                                                         item.status === 'active'

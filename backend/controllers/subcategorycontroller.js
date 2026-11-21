@@ -347,10 +347,6 @@ const updateSubCategory = async (req, res) => {
             updateData.image = uploadedImage.secure_url;
         }
 
-        // Handle status
-        if (status !== undefined) {
-            updateData.status = status;
-        }
 
         const subCategory = await SubCategory.findByIdAndUpdate(
             id,
