@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken')
 const DeliveryPartner = require('../model/deliverypartnermodel')
 
 
+
 const signup = async (req, res) => {
     try {
         const {
@@ -35,63 +36,15 @@ const signup = async (req, res) => {
             })
         }
 
-        // Find or create Super Admin role
-        let adminRole = await Role.findOne({
-            name: 'super admin'
+        // Find existing Super Admin role
+        const adminRole = await Role.findOne({
+            name: 'super admin',
+            status: 'active'
         })
 
         if (!adminRole) {
-            adminRole = await Role.create({
-                name: 'super admin',
-                permissions: [  "users_view",
-    "user_create",
-    "user_edit",
-    "user_delete",
-    "dashboard_view",
-    "products_view",
-    "products_create",
-    "products_edit",
-    "products_delete",
-    "categories_view",
-    "categories_create",
-    "categories_edit",
-    "categories_delete",
-    "subcategories_view",
-    "subcategories_create",
-    "subcategories_edit",
-    "subcategories_delete",
-    "roles_view",
-    "roles_create",
-    "roles_manage_permissions",
-    "brands_view",
-    "brands_create",
-    "brands_edit",
-    "brands_delete",
-    "productvariant_view",
-    "productvariant_create",
-    "productvariant_edit",
-    "productvariant_delete",
-    "store_view",
-    "store_create",
-    "store_edit",
-    "store_delete",
-    "template_view",
-    "template_create",
-    "template_edit",
-    "template_delete",
-    "storeinventory_view",
-    "storeinventory_create",
-    "storeinventory_edit",
-    "storeinventory_delete"
-],
-                status: 'active'
-            })
-        }
-
-        // Check role status
-        if (adminRole.status !== 'active') {
-            return res.status(403).json({
-                message: 'Super Admin role is inactive',
+            return res.status(404).json({
+                message: 'Super Admin role not found',
                 status: false
             })
         }
