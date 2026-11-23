@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import axios from 'axios'
 import Link from 'next/link'
@@ -44,7 +44,7 @@ const inputClass = "w-full rounded-xl border border-purple-100 bg-[#faf8ff] px-4
 
 const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
 
-export default function Checkout() {
+ function CheckoutContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -1506,5 +1506,18 @@ export default function Checkout() {
 
             </div>
         </main>
+    )
+}
+
+
+export default function Checkout() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-[70vh] items-center justify-center">
+                Loading checkout...
+            </div>
+        }>
+            <CheckoutContent />
+        </Suspense>
     )
 }

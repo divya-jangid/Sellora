@@ -8,6 +8,7 @@ import axios from 'axios'
 import { useCart } from '@/context/CartContext'
 import toast from 'react-hot-toast'
 import VerifyResetOTP from './VerifyResetOTP'
+import { Suspense } from 'react'
 
 import {
   ShoppingCart,

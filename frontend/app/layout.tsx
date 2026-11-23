@@ -8,6 +8,7 @@ import { Toaster } from 'react-hot-toast'
 import Footer from "@/components/Footer";
 import { LocationProvider } from '../context/LocationContext'
 import LocationModal from "@/components/LocationModal";
+import { Suspense } from "react";
 
 
 const geistSans = Geist({
@@ -32,8 +33,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full flex flex-col">
         <LocationProvider>
           <CartProvider>
-            <LocationModal/>
-            <Header />
+            <LocationModal />
+            <Suspense fallback={<div>Loading...</div>}>
+              <Header />
+            </Suspense>
             {children}
             <Footer />
           </CartProvider>
