@@ -137,13 +137,15 @@ const userSignup = async (req, res) => {
                 text: `Your Sellora verification OTP is ${otp}. It expires in 10 minutes.`
             })
         } catch (emailError) {
-            pendingSignups.delete(normalizedEmail)
+    console.error("OTP EMAIL ERROR:", emailError)
 
-            return res.status(500).json({
-                message: 'Verification email could not be sent',
-                status: false
-            })
-        }
+    pendingSignups.delete(normalizedEmail)
+
+    return res.status(500).json({
+        message: 'Verification email could not be sent',
+        status: false
+    })
+}
 
         return res.status(200).json({
             message: 'OTP sent successfully',
