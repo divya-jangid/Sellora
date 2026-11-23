@@ -15,7 +15,8 @@ app.use(cors({
     origin: [
         'http://localhost:3000',
         'http://localhost:5173',
-        'https://sellora-ql18.vercel.app'
+        'https://sellora-ql18.vercel.app',
+        'https://sellora-navy-sigma.vercel.app'
     ],
     credentials: true
 }));
