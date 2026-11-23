@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import axios from 'axios'
+import api from '@/api/api'
 import toast from 'react-hot-toast'
 
 function Signup({ setCurrentForm }) {
@@ -53,14 +53,13 @@ function Signup({ setCurrentForm }) {
     try {
       setLoading(true)
 
-      const res = await axios.post(
-        'http://localhost:8000/user/signup',
+      const res = await api.post(
+        '/user/signup',
         {
           firstName,
           lastName,
           email: form.email.trim().toLowerCase()
-        },
-        { withCredentials: true }
+        }
       )
 
       if (res.data.status) {
@@ -85,13 +84,12 @@ function Signup({ setCurrentForm }) {
     try {
       setVerifying(true)
 
-      const res = await axios.post(
-        'http://localhost:8000/user/verify-email',
+      const res = await api.post(
+        '/user/verify-email',
         {
           email: form.email.trim().toLowerCase(),
           otp
-        },
-        { withCredentials: true }
+        }
       )
 
       if (res.data.status) {
@@ -135,16 +133,15 @@ function Signup({ setCurrentForm }) {
     try {
       setLoading(true)
 
-      const res = await axios.post(
-        'http://localhost:8000/user/signup',
+      const res = await api.post(
+        '/user/signup',
         {
           firstName,
           lastName,
           email: form.email.trim().toLowerCase(),
           phone: form.phone.trim(),
           password: form.password
-        },
-        { withCredentials: true }
+        }
       )
 
       if (res.data.status) {

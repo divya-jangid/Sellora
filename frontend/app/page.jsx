@@ -2,7 +2,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import axios from 'axios'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Banner from '@/components/Banner'
@@ -10,6 +9,7 @@ import CategoryNavbar from '@/components/CategoryNavbar'
 import { useCart } from '@/context/CartContext'
 import { toast } from 'react-hot-toast'
 import { useLocationContext } from '@/context/LocationContext'
+import api from '@/api/api'
 
 const Page = () => {
     const router = useRouter()
@@ -79,8 +79,8 @@ const Page = () => {
             try {
                 setLoadingProducts(true)
 
-                const res = await axios.get(
-                    'http://localhost:8000/product/featured',
+                const res = await api.get(
+                    '/product/featured',
                     {
                         headers: {
                             'Cache-Control': 'no-cache'
@@ -172,8 +172,8 @@ const Page = () => {
 
         try {
 
-            const res = await axios.get(
-                'http://localhost:8000/product/featured',
+            const res = await api.get(
+                '/product/featured',
                 {
                     headers: {
                         'Cache-Control': 'no-cache'

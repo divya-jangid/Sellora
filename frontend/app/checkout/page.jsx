@@ -3,13 +3,11 @@
 
 import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import axios from 'axios'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/context/CartContext'
 import { useLocationContext } from '@/context/LocationContext'
-
-const API = 'http://localhost:8000'
+import api from '@/api/api'
 
 const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -44,7 +42,7 @@ const inputClass = "w-full rounded-xl border border-purple-100 bg-[#faf8ff] px-4
 
 const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
 
- function CheckoutContent() {
+function CheckoutContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -84,27 +82,23 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
             throw new Error('Please select your location first.')
         }
 
-        const res = await axios.get(
-            `${API}/cart/get`,
-            {
-                params: { storeId },
-                withCredentials: true
-            }
-        )
+        const res = await api.get('/cart/get', {
+            params: { storeId }
+        })
 
         if (!res.data.status) {
-            throw new Error(res.data.message || 'Unable to refresh cart')
+            throw new Error(
+                res.data.message || 'Unable to refresh cart'
+            )
         }
 
         return res.data.data || { items: [] }
     }, [storeId])
 
+
     // FETCH ADDRESSES
     const fetchAddresses = useCallback(async () => {
-        const res = await axios.get(
-            `${API}/address/get`,
-            { withCredentials: true }
-        )
+        const res = await api.get('/address/get')
 
         const addressData = res.data.data || []
 
@@ -220,15 +214,14 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         setChangingDefault(addressId)
 
         try {
-            const res = await axios.put(
-                `${API}/address/set-default/${addressId}`,
-                {},
-                { withCredentials: true }
+            const res = await api.put(
+                `/address/set-default/${addressId}`
             )
 
-            if (!res.data.success) {
+            if (!res.data.status) {
                 throw new Error(
-                    res.data.message || 'Unable to change default address'
+                    res.data.message ||
+                    'Unable to change default address'
                 )
             }
 
@@ -252,20 +245,21 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         }
     }
 
+
     // DELETE ADDRESS
     const handleDeleteAddress = async (addressId) => {
         setError('')
         setDeletingAddress(addressId)
 
         try {
-            const res = await axios.delete(
-                `${API}/address/delete/${addressId}`,
-                { withCredentials: true }
+            const res = await api.delete(
+                `/address/delete/${addressId}`
             )
 
             if (!res.data.status) {
                 throw new Error(
-                    res.data.message || 'Unable to delete address'
+                    res.data.message ||
+                    'Unable to delete address'
                 )
             }
 
@@ -301,6 +295,7 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         }
     }
 
+
     // SAVE NEW ADDRESS
     const saveAddress = async (e) => {
         e.preventDefault()
@@ -319,11 +314,7 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         setSavingAddress(true)
 
         try {
-            const res = await axios.post(
-                `${API}/address/add`,
-                form,
-                { withCredentials: true }
-            )
+            const res = await api.post('/address/add', form)
 
             if (!res.data.status) {
                 throw new Error(
@@ -356,6 +347,7 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         }
     }
 
+
     // APPLY COUPON
     const applyCoupon = async () => {
         const code = couponCode.trim().toUpperCase()
@@ -376,11 +368,11 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         setError('')
 
         try {
-            const res = await axios.post(
-                `${API}/cart/apply-coupon`,
-                { code, storeId },
-                { withCredentials: true }
-            )
+            const res = await api.post('/cart/apply-coupon', {
+                couponCode: code,
+                storeId
+            })
+
 
             if (!res.data.status) {
                 setCouponMessage(
@@ -422,14 +414,9 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
         setError('')
 
         try {
-            const res = await axios.delete(
-                `${API}/cart/remove-coupon`,
-                {
-                    data: { storeId },
-                    withCredentials: true
-                }
-            )
-
+            const res = await api.delete('/cart/remove-coupon', {
+                data: { storeId }
+            })
             if (!res.data.status) {
                 setCouponMessage(
                     res.data.message || 'Unable to remove coupon.'
@@ -574,11 +561,7 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
                 }
             }
 
-            const res = await axios.post(
-                `${API}/order/place`,
-                orderPayload,
-                { withCredentials: true }
-            )
+            const res = await api.post('/order/place', orderPayload)
 
             if (!res.data.status) {
                 throw new Error(
@@ -602,11 +585,10 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
             }
 
             // RAZORPAY
-            const gatewayRes = await axios.post(
-                `${API}/payment/razorpay/create-order`,
-                { orderId },
-                { withCredentials: true }
-            )
+            const gatewayRes = await api.post('/payment/create-order', {
+                orderId
+            })
+
 
             if (!gatewayRes.data.status) {
                 throw new Error(
@@ -634,15 +616,13 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
                     } = response
 
                     try {
-                        const verifyRes = await axios.post(
-                            `${API}/payment/razorpay/verify`,
-                            {
-                                razorpay_order_id,
-                                razorpay_payment_id,
-                                razorpay_signature
-                            },
-                            { withCredentials: true }
-                        )
+                        const verifyRes = await api.post('/payment/verify', {
+                            orderId,
+                            razorpay_order_id,
+                            razorpay_payment_id,
+                            razorpay_signature
+                        })
+
 
                         if (verifyRes.data.status) {
                             if (isBuyNow) {
@@ -841,11 +821,10 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
                                             <div
                                                 key={address._id}
                                                 onClick={() => handleAddressSelect(address._id)}
-                                                className={`cursor-pointer rounded-2xl border p-4 transition duration-200 ${
-                                                    selectedAddress === address._id
-                                                        ? 'border-purple-500 bg-purple-50/70 shadow-sm'
-                                                        : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-purple-50/30'
-                                                }`}
+                                                className={`cursor-pointer rounded-2xl border p-4 transition duration-200 ${selectedAddress === address._id
+                                                    ? 'border-purple-500 bg-purple-50/70 shadow-sm'
+                                                    : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-purple-50/30'
+                                                    }`}
                                             >
 
                                                 <div className="flex items-start gap-3">
@@ -1192,11 +1171,10 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
 
                                     {/* COD */}
                                     <label
-                                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                                            paymentMethod === 'COD'
-                                                ? 'border-purple-500 bg-purple-50'
-                                                : 'border-gray-200 hover:border-purple-200'
-                                        }`}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${paymentMethod === 'COD'
+                                            ? 'border-purple-500 bg-purple-50'
+                                            : 'border-gray-200 hover:border-purple-200'
+                                            }`}
                                     >
                                         <input
                                             type="radio"
@@ -1226,11 +1204,10 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
 
                                     {/* ONLINE */}
                                     <label
-                                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                                            paymentMethod === 'online'
-                                                ? 'border-purple-500 bg-purple-50'
-                                                : 'border-gray-200 hover:border-purple-200'
-                                        }`}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${paymentMethod === 'online'
+                                            ? 'border-purple-500 bg-purple-50'
+                                            : 'border-gray-200 hover:border-purple-200'
+                                            }`}
                                     >
                                         <input
                                             type="radio"
@@ -1370,11 +1347,10 @@ const labelClass = "mb-2 block text-sm font-semibold text-gray-700"
                                             </div>
 
                                             {couponMessage && (
-                                                <p className={`mt-2 text-xs ${
-                                                    couponSuccess
-                                                        ? 'text-green-700'
-                                                        : 'text-red-600'
-                                                }`}>
+                                                <p className={`mt-2 text-xs ${couponSuccess
+                                                    ? 'text-green-700'
+                                                    : 'text-red-600'
+                                                    }`}>
                                                     {couponMessage}
                                                 </p>
                                             )}

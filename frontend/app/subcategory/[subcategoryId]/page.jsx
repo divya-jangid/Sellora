@@ -4,12 +4,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import axios from 'axios'
 import { useCart } from '@/context/CartContext'
 import { useLocationContext } from '@/context/LocationContext'
 import { toast } from 'react-hot-toast'
+import api from '@/api/api'
 
-const API = 'http://localhost:8000'
 const LIMIT = 10
 
 export default function SubcategoryPage() {
@@ -78,8 +77,8 @@ export default function SubcategoryPage() {
 
                 setErrorMessage('')
 
-                const response = await axios.get(
-                    `${API}/subcategory/public`,
+                const response = await api.get(
+                    '/subcategory/public',
                     { params: { storeId } }
                 )
 
@@ -148,7 +147,7 @@ export default function SubcategoryPage() {
 
                 const [productRes, variantRes, inventoryRes] = await Promise.all([
 
-                    axios.get(`${API}/product/public`, {
+                    api.get('/product/public', {
                         params: {
                             storeId,
                             subCategoryId: subcategoryId,
@@ -161,11 +160,11 @@ export default function SubcategoryPage() {
                         signal: controller.signal
                     }),
 
-                    axios.get(`${API}/productvariant/public`, {
+                    api.get('/productvariant/public', {
                         signal: controller.signal
                     }),
 
-                    axios.get(`${API}/inventory/public`, {
+                    api.get('/inventory/public', {
                         params: { storeId },
                         signal: controller.signal
                     })

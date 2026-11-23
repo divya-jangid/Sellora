@@ -3,9 +3,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import api from '@api/api'
 
-const API = 'http://localhost:8000'
 
 export default function Profile() {
   const router = useRouter()
@@ -27,9 +26,8 @@ export default function Profile() {
   useEffect(() => {
     const getProfile = async () => {
       try {
-        const res = await axios.get(
-          `${API}/user/check-user`,
-          { withCredentials: true }
+        const res = await api.get(
+          `/user/check-user`
         )
 
         if (res.data.status) {
@@ -86,10 +84,9 @@ export default function Profile() {
     try {
       setSaving(true)
 
-      const res = await axios.put(
-        `${API}/user/my-profile`,
+      const res = await api.put(
+        `/user/my-profile`,
         updatedForm,
-        { withCredentials: true }
       )
 
       if (res.data.status) {
@@ -125,10 +122,9 @@ export default function Profile() {
       setDeactivating(true)
       setError('')
 
-      const res = await axios.put(
-        `${API}/user/deactivate-account`,
+      const res = await api.put(
+        `/user/deactivate-account`,
         {},
-        { withCredentials: true }
       )
 
       if (res.data.success) {

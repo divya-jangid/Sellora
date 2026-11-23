@@ -2,10 +2,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '@/api/api'
 import Link from 'next/link'
 
-const API = 'http://localhost:8000/banner/public'
 
 export default function Banner() {
     const [banners, setBanners] = useState([])
@@ -13,7 +12,7 @@ export default function Banner() {
 
     const getBanners = async () => {
         try {
-            const res = await axios.get(API)
+            const res = await api.get('/banner/public')
 
             const activeBanners = (res.data?.data || []).filter(
                 (banner) =>

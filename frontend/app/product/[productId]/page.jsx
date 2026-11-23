@@ -3,10 +3,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/context/CartContext'
 import { useLocationContext } from '@/context/LocationContext'
+import api from '@/api/api'
 
 export default function ProductDetailPage() {
     const params = useParams()
@@ -59,10 +59,9 @@ export default function ProductDetailPage() {
                         : { productSlug })
                 }
 
-                const res = await axios.get(
-                    'http://localhost:8000/product/public',
-                    { params: queryParams }
-                )
+                const res = await api.get('/product/public', {
+                    params: queryParams
+                })
 
                 let selectedProduct = res.data?.data
 
@@ -253,82 +252,77 @@ export default function ProductDetailPage() {
 
     // BUY NOW - DOES NOT ADD PRODUCT TO CART
     const handleBuyNow = async () => {
-    if (currentStock <= 0) {
-        toast.error('Product is out of stock!')
-        return
-    }
-
-    if (hasVariants && !selectedVariant) {
-        toast.error('Please select an available variant!')
-        return
-    }
-
-    // Purana Buy Now data clear karo
-    sessionStorage.removeItem('buyNowProduct')
-
-    try {
-        // Login verify
-        const response = await axios.get(
-            'http://localhost:8000/address/get',
-            {
-                withCredentials: true
-            }
-        )
-
-        // Verification successful nahi hui toh stop
-        if (!response.data?.status) {
-            throw new Error('Please login first')
-        }
-
-        const buyNowData = {
-            productId: product._id,
-            variantId: selectedVariant?._id || null,
-            quantity: 1,
-
-            product: {
-                _id: product._id,
-                name: product.name,
-                price: product.price,
-                image: product.image,
-                availableQuantity: currentStock
-            },
-
-            variant: selectedVariant
-                ? {
-                    _id: selectedVariant._id,
-                    name: selectedVariant.name,
-                    sellingPrice: selectedVariant.sellingPrice,
-                    mrp: selectedVariant.mrp,
-                    availableQuantity: currentStock,
-                    images: selectedVariant.images
-                }
-                : null
-        }
-
-        sessionStorage.setItem(
-            'buyNowProduct',
-            JSON.stringify(buyNowData)
-        )
-
-        router.push('/checkout?mode=buy-now')
-
-    } catch (error) {
-        sessionStorage.removeItem('buyNowProduct')
-
-        if (error.response?.status === 401) {
-            window.dispatchEvent(
-                new Event('open-login-modal')
-            )
+        if (currentStock <= 0) {
+            toast.error('Product is out of stock!')
             return
         }
 
-        toast.error(
-            error.response?.data?.message ||
-            error.message ||
-            'Unable to verify login. Please try again.'
-        )
+        if (hasVariants && !selectedVariant) {
+            toast.error('Please select an available variant!')
+            return
+        }
+
+        // Purana Buy Now data clear karo
+        sessionStorage.removeItem('buyNowProduct')
+
+        try {
+            // Login verify
+            const response = await api.get('/address/get')
+
+            // Verification successful nahi hui toh stop
+            if (!response.data?.status) {
+                throw new Error('Please login first')
+            }
+
+            const buyNowData = {
+                productId: product._id,
+                variantId: selectedVariant?._id || null,
+                quantity: 1,
+
+                product: {
+                    _id: product._id,
+                    name: product.name,
+                    price: product.price,
+                    image: product.image,
+                    availableQuantity: currentStock
+                },
+
+                variant: selectedVariant
+                    ? {
+                        _id: selectedVariant._id,
+                        name: selectedVariant.name,
+                        sellingPrice: selectedVariant.sellingPrice,
+                        mrp: selectedVariant.mrp,
+                        availableQuantity: currentStock,
+                        images: selectedVariant.images
+                    }
+                    : null
+            }
+
+            sessionStorage.setItem(
+                'buyNowProduct',
+                JSON.stringify(buyNowData)
+            )
+
+            router.push('/checkout?mode=buy-now')
+
+        } catch (error) {
+            sessionStorage.removeItem('buyNowProduct')
+
+            if (error.response?.status === 401) {
+                window.dispatchEvent(
+                    new Event('open-login-modal')
+                )
+                return
+            }
+
+            toast.error(
+                error.response?.data?.message ||
+                error.message ||
+                'Unable to verify login. Please try again.'
+            )
+        }
     }
-}
 
     // UPDATE CART QUANTITY
     const updateQuantity = async newQuantity => {
@@ -570,8 +564,8 @@ export default function ProductDetailPage() {
                                                 type="button"
                                                 onClick={() => setSelectedVariant(variant)}
                                                 className={`rounded-xl border px-5 py-3 text-sm font-semibold transition ${selectedVariant?._id === variant._id
-                                                        ? 'border-purple-600 bg-purple-50 text-purple-700 ring-2 ring-purple-100'
-                                                        : 'border-gray-200 bg-white text-gray-700 hover:border-purple-400'
+                                                    ? 'border-purple-600 bg-purple-50 text-purple-700 ring-2 ring-purple-100'
+                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-purple-400'
                                                     }`}
                                             >
                                                 {variant.name}
@@ -600,8 +594,8 @@ export default function ProductDetailPage() {
                         {/* STOCK STATUS */}
                         <div className="mb-6 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
                             <span className={`h-2.5 w-2.5 rounded-full ${currentStock > 0
-                                    ? 'bg-green-500'
-                                    : 'bg-red-500'
+                                ? 'bg-green-500'
+                                : 'bg-red-500'
                                 }`}></span>
 
                             <span className="text-sm font-medium text-gray-700">
@@ -609,8 +603,8 @@ export default function ProductDetailPage() {
                             </span>
 
                             <span className={`text-sm font-bold ${currentStock > 0
-                                    ? 'text-green-600'
-                                    : 'text-red-600'
+                                ? 'text-green-600'
+                                : 'text-red-600'
                                 }`}>
                                 {currentStock > 0
                                     ? 'In Stock'

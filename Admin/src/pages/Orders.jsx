@@ -13,9 +13,6 @@ import {
   UserPlus
 } from 'lucide-react'
 
-const ORDER_API = 'http://localhost:8000/order'
-const USER_API = 'http://localhost:8000/user'
-const DELIVERY_API = 'http://localhost:8000/delivery'
 
 function Order() {
   const [user, setUser] = useState(null)

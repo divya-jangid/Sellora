@@ -2,14 +2,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import { useLocationContext } from '@/context/LocationContext'
 import { toast } from 'react-hot-toast'
-
-const API = 'http://localhost:8000/product/public'
+import api from '@/api/api'
 
 const ProductsPage = () => {
 
@@ -61,7 +59,7 @@ const ProductsPage = () => {
 
             setLoading(true)
 
-            const res = await axios.get(API, {
+            const res = await api.get('/product/public', {
                 params: {
                     storeId: selectedStore._id,
                     page,
@@ -698,11 +696,10 @@ const ProductsPage = () => {
                                                 type="button"
                                                 disabled={loading}
                                                 onClick={() => changePage(pageNumber)}
-                                                className={`h-10 min-w-10 rounded-lg px-3 text-sm font-semibold ${
-                                                    page === pageNumber
+                                                className={`h-10 min-w-10 rounded-lg px-3 text-sm font-semibold ${page === pageNumber
                                                         ? 'bg-purple-600 text-white'
                                                         : 'border border-purple-300 bg-white text-purple-700 hover:bg-purple-100'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNumber}
                                             </button>

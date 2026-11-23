@@ -2,12 +2,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
-
-const API = 'http://localhost:8000'
+import api from '@/api/api'
 
 const cancellationReasons = [
     'Ordered by mistake',
@@ -36,9 +34,8 @@ export default function CancelOrder() {
 
         const getOrderDetails = async () => {
             try {
-                const res = await axios.get(
-                    `${API}/order/details/${id}`,
-                    { withCredentials: true }
+                const res = await api.get(
+                    `/order/details/${id}`
                 )
 
                 setOrder(res.data.order)
@@ -72,15 +69,14 @@ export default function CancelOrder() {
                 ? otherReason.trim()
                 : selectedReason
 
-    
+
 
         try {
             setCancelLoading(true)
 
-            const res = await axios.put(
-                `${API}/order/cancel/${id}`,
-                { cancellationReason },
-                { withCredentials: true }
+            const res = await api.put(
+                `/order/cancel/${id}`,
+                { cancellationReason }
             )
 
             toast.success(res.data.message || 'Order cancelled successfully.')
@@ -279,11 +275,10 @@ export default function CancelOrder() {
                         {cancellationReasons.map((reason) => (
                             <label
                                 key={reason}
-                                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
-                                    selectedReason === reason
-                                        ? 'border-purple-500 bg-purple-50'
-                                        : 'border-gray-200 hover:border-purple-300'
-                                }`}
+                                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selectedReason === reason
+                                    ? 'border-purple-500 bg-purple-50'
+                                    : 'border-gray-200 hover:border-purple-300'
+                                    }`}
                             >
 
                                 <input

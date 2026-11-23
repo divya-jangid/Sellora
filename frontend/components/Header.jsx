@@ -4,11 +4,10 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import axios from 'axios'
 import { useCart } from '@/context/CartContext'
 import toast from 'react-hot-toast'
 import VerifyResetOTP from './VerifyResetOTP'
-import { Suspense } from 'react'
+import api from '@/api/api'
 
 import {
   ShoppingCart,
@@ -238,9 +237,8 @@ function Header() {
   // Check logged-in customer
   const checkUser = async () => {
     try {
-      const res = await axios.get(
-        'http://localhost:8000/user/check-user',
-        { withCredentials: true }
+      const res = await api.get(
+        '/user/check-user'
       )
 
       if (res.data.status) {
@@ -310,8 +308,8 @@ function Header() {
       try {
         setSearchLoading(true)
 
-        const res = await axios.get(
-          'http://localhost:8000/product/public',
+        const res = await api.get(
+          '/product/public',
           {
             params: {
               storeId: selectedStore._id,
@@ -377,10 +375,9 @@ function Header() {
 
   const handleLogout = async () => {
     try {
-      await axios.post(
-        'http://localhost:8000/admin/logout',
+      await api.post(
+        '/admin/logout',
         {},
-        { withCredentials: true }
       )
 
       toast.success('Logout successful!')

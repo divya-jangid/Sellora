@@ -3,13 +3,12 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import axios from 'axios'
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { useLocationContext } from '@/context/LocationContext'
 import { toast } from 'react-hot-toast'
+import api from '@/api/api'
 
-const API = 'http://localhost:8000'
 const LIMIT = 10
 
 export default function CategoryPage() {
@@ -111,12 +110,12 @@ export default function CategoryPage() {
                 ] = await Promise.all([
 
                     // CATEGORY API
-                    axios.get(`${API}/category/public`, {
+                    api.get('/category/public', {
                         params: { storeId }
                     }),
 
                     // STORE + CATEGORY WISE SUBCATEGORY API
-                    axios.get(`${API}/subcategory/public`, {
+                    api.get('/subcategory/public', {
                         params: {
                             storeId,
                             categorySlug
@@ -124,7 +123,7 @@ export default function CategoryPage() {
                     }),
 
                     // CATEGORY + SUBCATEGORY + STORE WISE PRODUCTS
-                    axios.get(`${API}/product/public`, {
+                    api.get('/product/public', {
                         params: {
                             storeId,
                             categorySlug,
@@ -774,7 +773,7 @@ export default function CategoryPage() {
                         {category.name}
                     </Link>
 
-                    
+
                     {subcategorySlug !== 'all' && (
                         <>
                             <span>/</span>

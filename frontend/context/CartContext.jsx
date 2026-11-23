@@ -9,14 +9,11 @@ import {
     useCallback
 } from 'react'
 
-import axios from 'axios'
+import api from '@/api/api'
 import { useLocationContext } from '../context/LocationContext'
 
 const CartContext = createContext()
 
-const API = 'http://localhost:8000/cart'
-const CART_ITEM_API = 'http://localhost:8000/cartitem'
-const WISHLIST_API = 'http://localhost:8000/wishlist-item'
 
 export const CartProvider = ({ children }) => {
 
@@ -61,11 +58,10 @@ export const CartProvider = ({ children }) => {
 
             setLoadingCart(true)
 
-            const res = await axios.get(`${API}/get`, {
+            const res = await api.get(`cart/get`, {
                 params: {
                     storeId
-                },
-                withCredentials: true
+                }
             })
 
             const data = res.data?.data || {}
@@ -105,7 +101,7 @@ export const CartProvider = ({ children }) => {
         } finally {
             setLoadingCart(false)
         }
-        
+
     }, [storeId])
 
 
@@ -122,16 +118,13 @@ export const CartProvider = ({ children }) => {
                 throw new Error('Please select your location first')
             }
 
-            const res = await axios.post(
-                `${API}/add`,
+            const res = await api.post(
+                `cart/add`,
                 {
                     productId,
                     quantity,
                     variantId,
                     storeId
-                },
-                {
-                    withCredentials: true
                 }
             )
 
@@ -167,12 +160,9 @@ export const CartProvider = ({ children }) => {
                 return await removeCartItem(itemId)
             }
 
-            const res = await axios.put(
-                `${CART_ITEM_API}/update/${itemId}`,
-                { quantity },
-                {
-                    withCredentials: true
-                }
+            const res = await api.put(
+                `cartitem/update/${itemId}`,
+                { quantity }
             )
 
             await getCart()
@@ -196,8 +186,8 @@ export const CartProvider = ({ children }) => {
 
         try {
 
-            const res = await axios.delete(
-                `${CART_ITEM_API}/delete/${itemId}`,
+            const res = await api.delete(
+                `cartitem/delete/${itemId}`,
                 {
                     withCredentials: true
                 }
@@ -226,11 +216,8 @@ export const CartProvider = ({ children }) => {
 
             setLoadingWishlist(true)
 
-            const res = await axios.get(
-                `${WISHLIST_API}/get`,
-                {
-                    withCredentials: true
-                }
+            const res = await api.get(
+                `wishlist-item/get`
             )
 
             setWishlistItems(
@@ -263,12 +250,9 @@ export const CartProvider = ({ children }) => {
 
         try {
 
-            const res = await axios.post(
-                `${WISHLIST_API}/add`,
-                { productId },
-                {
-                    withCredentials: true
-                }
+            const res = await api.post(
+                `wishlist-item/add`,
+                { productId }
             )
 
             await getWishlist()
@@ -292,11 +276,9 @@ export const CartProvider = ({ children }) => {
 
         try {
 
-            const res = await axios.delete(
-                `${WISHLIST_API}/delete/${wishlistItemId}`,
-                {
-                    withCredentials: true
-                }
+            const res = await api.delete(
+                `wishlist-item/delete/${wishlistItemId}`
+               
             )
 
             await getWishlist()

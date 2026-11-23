@@ -2,10 +2,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import Link from 'next/link'
+import api from '@/api/api'
 
-const API = 'http://localhost:8000'
 
 export default function MyOrders() {
     const [orders, setOrders] = useState([])
@@ -15,12 +14,10 @@ export default function MyOrders() {
     useEffect(() => {
         const getOrders = async () => {
             try {
-                const res = await axios.get(
-                    `${API}/order/my-orders`,
-                    { withCredentials: true }
-                )
+                const res = await api.get('/order/my-orders')
 
                 setOrders(res.data.data || res.data.orders || [])
+
 
             } catch (err) {
                 setError(

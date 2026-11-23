@@ -2,8 +2,8 @@
 'use client'
 
 import { useLayoutEffect, useState } from 'react'
-import axios from 'axios'
 import toast from 'react-hot-toast'
+import api from '@/api/api'
 
 function ResetPassword({ setShowModal, setCurrentForm }) {
 
@@ -40,16 +40,15 @@ function ResetPassword({ setShowModal, setCurrentForm }) {
         try {
             setLoading(true)
 
-            const res = await axios.post(
-                'http://localhost:8000/user/reset-password',
+            const res = await api.post(
+                '/user/reset-password',
                 {
                     newPassword
                 },
                 {
                     headers: {
                         Authorization: `Bearer ${resetToken}`
-                    },
-                    withCredentials: true
+                    }
                 }
             )
 

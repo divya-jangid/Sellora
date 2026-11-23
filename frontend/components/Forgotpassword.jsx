@@ -2,8 +2,8 @@
 'use client'
 
 import { useState } from 'react'
-import axios from 'axios'
 import { toast } from 'react-hot-toast'
+import api from '@/api/api'
 
 function ForgotPassword({ setCurrentForm }) {
   const [email, setEmail] = useState('')
@@ -18,10 +18,9 @@ function ForgotPassword({ setCurrentForm }) {
 
       const normalizedEmail = email.trim().toLowerCase()
 
-      const res = await axios.post(
-        'http://localhost:8000/user/forgot-password',
-        { email: normalizedEmail },
-        { withCredentials: true }
+      const res = await api.post(
+        '/user/forgot-password',
+        { email: normalizedEmail }
       )
 
       if (res.data.status) {

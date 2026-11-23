@@ -2,8 +2,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
+import api from '@/api/api'
 import toast from 'react-hot-toast'
+import axios from 'axios'
 import { useLocationContext } from '@/context/LocationContext'
 
 function LocationModal() {
@@ -142,8 +143,8 @@ function LocationModal() {
                 longitude
             })
 
-            const res = await axios.post(
-                'http://localhost:8000/store/find-nearest',
+            const res = await api.post(
+                '/store/find-nearest',
                 {
                     latitude,
                     longitude

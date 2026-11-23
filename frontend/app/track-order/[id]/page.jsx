@@ -4,9 +4,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import axios from 'axios'
+import api from '@/api/api'
 
-const API = 'http://localhost:8000'
 
 const orderSteps = [
     {
@@ -99,9 +98,8 @@ export default function TrackOrder() {
                 setRefreshing(true)
             }
 
-            const res = await axios.get(
-                `${API}/order/details/${id}`,
-                { withCredentials: true }
+            const res = await api.get(
+                `/order/details/${id}`,
             )
 
             if (res.data.status) {

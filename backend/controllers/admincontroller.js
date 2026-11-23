@@ -275,10 +275,10 @@ const logout = async (req, res) => {
 
         // Clear login cookie
         res.clearCookie('token', {
-            httpOnly: true,
-            secure: false,
-            sameSite: 'lax'
-        });
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+});
 
         return res.status(200).json({
             message: 'Logout successful',

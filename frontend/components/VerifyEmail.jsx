@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import axios from 'axios'
+import api from '@/api/api'
 import toast from 'react-hot-toast'
 
 function VerifyEmail({ email, onVerificationSuccess }) {
@@ -20,15 +20,13 @@ function VerifyEmail({ email, onVerificationSuccess }) {
     try {
       setLoading(true)
 
-      const res = await axios.post(
-        'http://localhost:8000/user/verify-email',
+      const res = await api.post(
+        '/user/verify-email',
         {
           email,
           otp
-        },
-        {
-          withCredentials: true
         }
+        
       )
 
       if (res.data.status) {

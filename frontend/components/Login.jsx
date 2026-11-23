@@ -3,8 +3,8 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import axios from 'axios'
 import toast from 'react-hot-toast'
+import api from '@/api/api'
 
 function Login({ setCurrentForm, currentForm, setShowModal, setUser }) {
   const router = useRouter()
@@ -29,8 +29,8 @@ function Login({ setCurrentForm, currentForm, setShowModal, setUser }) {
     try {
       setLoading(true)
 
-      const res = await axios.post(
-        'http://localhost:8000/user/login',
+      const res = await api.post(
+        '/user/login',
         {
           email: form.email.trim().toLowerCase(),
           password: form.password

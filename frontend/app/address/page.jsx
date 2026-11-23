@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-
-const API_URL = 'http://localhost:8000/address'
+import api from '@/api/api'
 
 const emptyForm = {
     name: '',
@@ -37,18 +36,15 @@ const AddressPage = () => {
         try {
             setLoading(true)
 
-            const res = await fetch(`${API_URL}/get`, {
-                method: 'GET',
-                credentials: 'include'
-            })
+            const res = await api.get('/address/get')
 
-            const data = await res.json()
+            const data = res.data
 
-            if (!res.ok || !data.status) {
+            if (!data.status) {
                 throw new Error(data.message || 'Failed to fetch addresses')
             }
-
             setAddresses(data.data || [])
+
         } catch (error) {
             setMessage(error.message || 'Unable to fetch addresses')
             setMessageType('error')
@@ -97,22 +93,13 @@ const AddressPage = () => {
                 isDefault: form.isDefault
             }
 
-            const url = editId
-                ? `${API_URL}/update/${editId}`
-                : `${API_URL}/add`
+            const response = editId
+                ? await api.put(`/address/update/${editId}`, payload)
+                : await api.post('/address/add', payload)
 
-            const res = await fetch(url, {
-                method: editId ? 'PUT' : 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
+            const data = response.data
 
-            const data = await res.json()
-
-            if (!res.ok || !data.status) {
+            if (!data.status) {
                 throw new Error(data.message || 'Unable to save address')
             }
 
@@ -161,14 +148,11 @@ const AddressPage = () => {
             setDeleting(true)
             setMessage('')
 
-            const res = await fetch(`${API_URL}/delete/${deleteId}`, {
-                method: 'DELETE',
-                credentials: 'include'
-            })
+            const response = await api.delete(`/address/delete/${deleteId}`)
+            const data = response.data
 
-            const data = await res.json()
 
-            if (!res.ok || !data.status) {
+            if (!data.status) {
                 throw new Error(data.message || 'Unable to delete address')
             }
 
@@ -192,19 +176,16 @@ const AddressPage = () => {
         try {
             setMessage('')
 
-            const res = await fetch(
-                `${API_URL}/set-default/${address._id}`,
-                {
-                    method: 'PUT',
-                    credentials: 'include'
-                }
+            const response = await api.put(
+                `/address/set-default/${address._id}`
             )
 
-            const data = await res.json()
+            const data = response.data
 
-            if (!res.ok || !data.success) {
+            if (!data.status) {
                 throw new Error(data.message || 'Unable to change default address')
             }
+
 
             setAddresses(prev =>
                 prev.map(item => ({
@@ -307,11 +288,10 @@ const AddressPage = () => {
 
                 {/* MESSAGE */}
                 {message && (
-                    <div className={`mb-6 flex items-start gap-3 rounded-xl border p-4 text-sm ${
-                        messageType === 'error'
-                            ? 'border-red-200 bg-red-50 text-red-700'
-                            : 'border-green-200 bg-green-50 text-green-700'
-                    }`}>
+                    <div className={`mb-6 flex items-start gap-3 rounded-xl border p-4 text-sm ${messageType === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-700'
+                        : 'border-green-200 bg-green-50 text-green-700'
+                        }`}>
                         <span className="font-bold">
                             {messageType === 'error' ? '!' : '✓'}
                         </span>
@@ -677,11 +657,10 @@ const AddressPage = () => {
 
                             <div
                                 key={address._id}
-                                className={`relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6 ${
-                                    address.isDefault
-                                        ? 'border-purple-300 ring-1 ring-purple-100'
-                                        : 'border-gray-100'
-                                }`}
+                                className={`relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6 ${address.isDefault
+                                    ? 'border-purple-300 ring-1 ring-purple-100'
+                                    : 'border-gray-100'
+                                    }`}
                             >
 
                                 {address.isDefault && (

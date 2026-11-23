@@ -3,8 +3,8 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import axios from 'axios'
 import { toast } from  'react-hot-toast'
+import api from '@/api/api'
 
 export default function SetPassword() {
   const { token } = useParams()
@@ -46,8 +46,8 @@ export default function SetPassword() {
     try {
       setLoading(true)
 
-      const res = await axios.post(
-        `http://localhost:8000/user/set-password/${token}`,
+      const res = await api.post(
+        `/user/set-password/${token}`,
         { newPassword }
       )
 

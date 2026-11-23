@@ -2,9 +2,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import Link from 'next/link'
 import { useLocationContext } from '@/context/LocationContext'
+import api from '@/api/api'
 
 export default function CategoryNavbar() {
     const [categories, setCategories] = useState([])
@@ -23,8 +23,8 @@ export default function CategoryNavbar() {
             try {
                 setLoading(true)
 
-                const res = await axios.get(
-                    'http://localhost:8000/category/public',
+                const res = await api.get(
+                    '/category/public',
                     {
                         params: {
                             storeId: selectedStore._id

@@ -2,7 +2,7 @@
 'use client'
 
 import { useLayoutEffect, useState } from 'react'
-import axios from 'axios'
+import api from '@/api/api'
 import toast from 'react-hot-toast'
 
 function VerifyResetOTP({ setCurrentForm }) {
@@ -28,14 +28,11 @@ function VerifyResetOTP({ setCurrentForm }) {
         try {
             setLoading(true)
 
-            const res = await axios.post(
-                'http://localhost:8000/user/verify-reset-otp',
+            const res = await api.post(
+                '/user/verify-reset-otp',
                 {
                     email,
                     otp
-                },
-                {
-                    withCredentials: true
                 }
             )
 

@@ -2,11 +2,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import api from '@/api/api'
 
-const API = 'http://localhost:8000'
 
 const deliverySteps = [
     'ASSIGNED',
@@ -35,11 +34,7 @@ export default function OrderDetails() {
                     setError('')
                 }
 
-                const res = await axios.get(
-                    `${API}/order/details/${id}`,
-                    { withCredentials: true }
-                )
-
+                const res = await api.get(`/order/details/${id}`)
 
                 if (isMounted && res.data.status) {
                     console.log('Full Order:', res.data.order)
