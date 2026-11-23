@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import api from '@api/api'
+import api from '@/api/api'
 
 
 export default function Profile() {
