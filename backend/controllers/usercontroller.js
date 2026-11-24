@@ -4,7 +4,6 @@ const Role = require('../model/rolemodel')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const transporter = require('../utils/email')
-const getEmailTemplate  = require('../utils/emailTemplate')
 const DeliveryPartner = require('../model/deliverypartnermodel')
 
 const Order = require('../model/ordermodel');
