@@ -1,5 +1,6 @@
 
 const Template = require('../model/templatemodel')
+const getEmailTemplate = require('../utils/emailTemplate');
 const crypto = require('crypto')
 const User = require('../model/usermodel')
 const { Resend } = require('resend');
