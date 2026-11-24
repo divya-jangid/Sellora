@@ -1,10 +1,9 @@
 
 const Template = require('../model/templatemodel')
+const transporter = require('../utils/email')
 const getEmailTemplate = require('../utils/emailTemplate');
 const crypto = require('crypto')
 const User = require('../model/usermodel')
-const { Resend } = require('resend');
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 
@@ -295,21 +294,14 @@ const sendTemplateEmail = async (req, res) => {
             `
         }
 
-       const { data, error } = await resend.emails.send({
-    from: 'Sellora <onboarding@resend.dev>',
-    to: email,
-    subject: template.subject,
-    html: getEmailTemplate(template.subject, emailContent)
-});
-
-if (error) {
-    console.error('Resend Email Error:', error);
-
-    return res.status(500).json({
-        success: false,
-        message: error.message || 'Email could not be sent'
-    });
-}
+        await sendGmailEmail({
+         to: email,
+          subject: template.subject,
+         html: getEmailTemplate(
+          template.subject,
+           emailContent
+    )
+})
 
         res.status(200).json({
             success: true,

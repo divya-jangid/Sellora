@@ -3,6 +3,7 @@ const User = require('../model/usermodel')
 const Role = require('../model/rolemodel')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const transporter = require('../utils/email')
 const getEmailTemplate  = require('../utils/emailTemplate')
 const DeliveryPartner = require('../model/deliverypartnermodel')
 
@@ -10,16 +11,11 @@ const Order = require('../model/ordermodel');
 const Delivery = require('../model/deliverymodel');
 const Inventory = require('../model/inventorymodel');
 
+const releaseReservedInventory = require('../utils/releaseReservedInventory');
 
-const releaseReservedInventory = require('../utils/releaseReservedInventory')
+const sendGmailEmail = require('../gmailMailer')
+
 const pendingSignups = new Map()
-
-
-const { Resend } = require('resend')
-
-const resend = new Resend(process.env.RESEND_API_KEY)
-
-
 
 
 
@@ -135,27 +131,27 @@ const userSignup = async (req, res) => {
             verified: false
         })
 
-    try {
-    const { data, error } = await resend.emails.send({
-        from: 'Sellora <onboarding@resend.dev>',
+       try {
+    await sendGmailEmail({
         to: normalizedEmail,
         subject: 'Verify your Sellora email',
-        text: `Your Sellora verification OTP is ${otp}. It expires in 10 minutes.`
+        html: getEmailTemplate(
+            'Verify your Sellora email',
+            `
+                <h2>Email Verification</h2>
+
+                <p>Hello ${firstName} ${lastName},</p>
+
+                <p>Your Sellora verification OTP is:</p>
+
+                <h2 style="letter-spacing: 5px;">${otp}</h2>
+
+                <p>This OTP expires in 10 minutes.</p>
+
+                <p>Please do not share this OTP with anyone.</p>
+            `
+        )
     })
-
-    if (error) {
-        console.error('OTP EMAIL ERROR:', error)
-
-        pendingSignups.delete(normalizedEmail)
-
-        return res.status(500).json({
-            message: 'Verification email could not be sent',
-            status: false
-        })
-    }
-
-    console.log('OTP email sent successfully:', data?.id)
-
 } catch (emailError) {
     console.error('OTP EMAIL ERROR:', emailError)
 
@@ -278,31 +274,31 @@ const forgotPassword = async (req, res) => {
 
         await user.save()
 
-     try {
-    const { data, error } = await resend.emails.send({
-        from: 'Sellora <onboarding@resend.dev>',
+       try {
+    await sendGmailEmail({
         to: normalizedEmail,
         subject: 'Sellora Password Reset OTP',
-        text: `Your Sellora password reset OTP is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`
+        html: getEmailTemplate(
+            'Password Reset OTP',
+            `
+                <h2>Password Reset Request</h2>
+
+                <p>Your Sellora password reset OTP is:</p>
+
+                <h1 style="letter-spacing: 5px;">${otp}</h1>
+
+                <p>This OTP expires in 10 minutes.</p>
+
+                <p><strong>Do not share this code with anyone.</strong></p>
+
+                <p>If you did not request a password reset, please ignore this email.</p>
+
+                <p>Team Sellora</p>
+            `
+        )
     })
-
-    if (error) {
-        console.error('PASSWORD RESET EMAIL ERROR:', error)
-
-        user.passwordResetOTP = null
-        user.passwordResetOTPExpiry = null
-        await user.save()
-
-        return res.status(500).json({
-            message: 'Reset email could not be sent. Please try again.',
-            status: false
-        })
-    }
-
-    console.log('Password reset email sent:', data?.id)
-
 } catch (emailError) {
-    console.error('PASSWORD RESET EMAIL ERROR:', emailError)
+    console.error('RESET EMAIL ERROR:', emailError.message)
 
     user.passwordResetOTP = null
     user.passwordResetOTPExpiry = null
@@ -784,10 +780,9 @@ const createUser = async (req, res) => {
             await deliveryPartner.save();
         }
 
-// Send Temporary Password Email using Resend
-
-const { data, error } = await resend.emails.send({
-    from: 'Sellora <onboarding@resend.dev>',
+// Send Temporary Password Email
+// Send Temporary Password Email using Gmail API
+await sendGmailEmail({
     to: user.email,
     subject: 'Your Sellora Account Login Details',
     html: getEmailTemplate(
@@ -807,13 +802,6 @@ const { data, error } = await resend.emails.send({
         `
     )
 });
-
-if (error) {
-    console.error('Resend Email Error:', error);
-
-    throw new Error(error.message || 'Temporary password email could not be sent');
-}
-
         return res.status(201).json({
             status: true,
             message: isDeliveryPartner

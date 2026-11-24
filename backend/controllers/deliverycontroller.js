@@ -3,12 +3,12 @@ const DeliveryPartner = require('../model/deliverypartnermodel');
 const Delivery = require('../model/deliverymodel');
 const Order = require('../model/ordermodel');
 const crypto = require('crypto');
+const transporter = require('../utils/email');
 const OrderItem = require('../model/orderitemsmodel');
 const Inventory = require('../model/inventorymodel');
+const getEmailTemplate = require('../utils/emailTemplate');
+const sendGmailEmail = require('../gmailMailer');
 
-const { Resend } = require('resend');
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 // Deduct Inventory After Successful Delivery
@@ -169,41 +169,34 @@ const assignDeliveryPartner = async (req, res) => {
             notes: notes || ''
         });
 
-        // Send OTP to Customer Email
-      try {
-    const { data, error } = await resend.emails.send({
-        from: 'Sellora <onboarding@resend.dev>',
+       // Send OTP to Customer Email using Gmail API
+try {
+    await sendGmailEmail({
         to: customerEmail,
         subject: 'Sellora - Your Delivery OTP',
-        text: `Hello ${order.user.firstName},
+        html: getEmailTemplate(
+            'Your Delivery OTP',
+            `
+                <h2>Hello ${order.user.firstName},</h2>
 
-Your order ${order.orderNumber} has been assigned to a delivery partner.
+                <p>Your order <strong>${order.orderNumber}</strong> has been assigned to a delivery partner.</p>
 
-Your delivery verification OTP is: ${otp}
+                <p>Your delivery verification OTP is:</p>
 
-Please share this OTP with the delivery partner only when you receive your order.
+                <h1 style="letter-spacing: 5px;">${otp}</h1>
 
-Do not share this OTP before receiving your order.
+                <p>Please share this OTP with the delivery partner only when you receive your order.</p>
 
-Thank you,
-Team Sellora`
+                <p><strong>Do not share this OTP before receiving your order.</strong></p>
+
+                <p>Thank you,<br/>Team Sellora</p>
+            `
+        )
     });
 
-    if (error) {
-        console.error('DELIVERY OTP EMAIL ERROR:', error);
-
-        await Delivery.findByIdAndDelete(delivery._id);
-
-        return res.status(500).json({
-            success: false,
-            message: 'OTP email could not be sent. Please try again.'
-        });
-    }
-
-    console.log('Delivery OTP email sent:', data?.id);
-
 } catch (emailError) {
-    console.error('DELIVERY OTP EMAIL ERROR:', emailError);
+
+    console.log('OTP EMAIL ERROR:', emailError.message);
 
     await Delivery.findByIdAndDelete(delivery._id);
 
@@ -212,7 +205,7 @@ Team Sellora`
         message: 'OTP email could not be sent. Please try again.'
     });
 }
-      
+
         // Update Order
         order.deliveryPartner = partner.user;
         await order.save();
@@ -1282,37 +1275,32 @@ const resendDeliveryOtp = async (req, res) => {
         // Generate New OTP
         const otp = crypto.randomInt(100000, 1000000).toString();
 
-        // Send New OTP to Customer
-     try {
-    const { data, error } = await resend.emails.send({
-        from: 'Sellora <onboarding@resend.dev>',
+      // Send New OTP to Customer using Gmail API
+try {
+    await sendGmailEmail({
         to: order.user.email,
         subject: 'Sellora - Your New Delivery OTP',
-        text: `Hello ${order.user.firstName},
+        html: getEmailTemplate(
+            'Your New Delivery OTP',
+            `
+                <h2>Hello ${order.user.firstName},</h2>
 
-Your new delivery verification OTP for order ${order.orderNumber} is: ${otp}
+                <p>Your new delivery verification OTP for order
+                <strong>${order.orderNumber}</strong> is:</p>
 
-Please share this OTP with the delivery partner only when you receive your order.
+                <h1 style="letter-spacing: 5px;">${otp}</h1>
 
-Do not share this OTP before receiving your order.
+                <p>Please share this OTP with the delivery partner only when you receive your order.</p>
 
-Thank you,
-Team Sellora`
+                <p><strong>Do not share this OTP before receiving your order.</strong></p>
+
+                <p>Thank you,<br/>Team Sellora</p>
+            `
+        )
     });
 
-    if (error) {
-        console.error('RESEND DELIVERY OTP ERROR:', error);
-
-        return res.status(500).json({
-            success: false,
-            message: 'OTP email could not be sent. Please try again.'
-        });
-    }
-
-    console.log('New delivery OTP email sent:', data?.id);
-
 } catch (emailError) {
-    console.error('RESEND DELIVERY OTP ERROR:', emailError);
+    console.log('RESEND OTP EMAIL ERROR:', emailError.message);
 
     return res.status(500).json({
         success: false,
