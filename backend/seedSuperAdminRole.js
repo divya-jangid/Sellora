@@ -22,11 +22,63 @@ const seedSuperAdminRole = async () => {
         const role = await Role.create({
             name: 'super admin',
             permissions: [
-                'roles_create',
-                'roles_view',
-                'roles_edit',
-                'roles_delete'
-            ],
+    'dashboard_view',
+
+    'products_view',
+    'products_create',
+    'products_edit',
+    'products_delete',
+
+    'categories_view',
+    'categories_create',
+    'categories_edit',
+    'categories_delete',
+
+    'subcategories_view',
+    'subcategories_create',
+    'subcategories_edit',
+    'subcategories_delete',
+
+    'brands_view',
+    'brands_create',
+    'brands_edit',
+    'brands_delete',
+
+    'productvariant_view',
+    'productvariant_create',
+    'productvariant_edit',
+    'productvariant_delete',
+
+    'store_view',
+    'store_create',
+    'store_edit',
+    'store_delete',
+
+    'storeinventory_view',
+    'storeinventory_create',
+    'storeinventory_edit',
+    'storeinventory_delete',
+
+    'users_view',
+    'user_create',
+    'user_edit',
+    'user_delete',
+
+    'roles_view',
+    'roles_create',
+    'roles_edit',
+    'roles_delete',
+
+    'template_view',
+    'template_create',
+    'template_edit',
+    'template_delete',
+
+    'banners_view',
+    'banners_create',
+    'banners_edit',
+    'banners_delete'
+],
             status: 'active'
         })
 

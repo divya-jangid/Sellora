@@ -3,9 +3,12 @@ const DeliveryPartner = require('../model/deliverypartnermodel');
 const Delivery = require('../model/deliverymodel');
 const Order = require('../model/ordermodel');
 const crypto = require('crypto');
-const transporter = require('../utils/email');
 const OrderItem = require('../model/orderitemsmodel');
 const Inventory = require('../model/inventorymodel');
+
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 // Deduct Inventory After Successful Delivery
@@ -167,12 +170,12 @@ const assignDeliveryPartner = async (req, res) => {
         });
 
         // Send OTP to Customer Email
-        try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: customerEmail,
-                subject: 'Sellora - Your Delivery OTP',
-                text: `Hello ${order.user.firstName},
+      try {
+    const { data, error } = await resend.emails.send({
+        from: 'Sellora <onboarding@resend.dev>',
+        to: customerEmail,
+        subject: 'Sellora - Your Delivery OTP',
+        text: `Hello ${order.user.firstName},
 
 Your order ${order.orderNumber} has been assigned to a delivery partner.
 
@@ -184,20 +187,32 @@ Do not share this OTP before receiving your order.
 
 Thank you,
 Team Sellora`
-            });
+    });
 
-        } catch (emailError) {
+    if (error) {
+        console.error('DELIVERY OTP EMAIL ERROR:', error);
 
-            console.log('OTP EMAIL ERROR:', emailError.message);
+        await Delivery.findByIdAndDelete(delivery._id);
 
-            await Delivery.findByIdAndDelete(delivery._id);
+        return res.status(500).json({
+            success: false,
+            message: 'OTP email could not be sent. Please try again.'
+        });
+    }
 
-            return res.status(500).json({
-                success: false,
-                message: 'OTP email could not be sent. Please try again.'
-            });
-        }
+    console.log('Delivery OTP email sent:', data?.id);
 
+} catch (emailError) {
+    console.error('DELIVERY OTP EMAIL ERROR:', emailError);
+
+    await Delivery.findByIdAndDelete(delivery._id);
+
+    return res.status(500).json({
+        success: false,
+        message: 'OTP email could not be sent. Please try again.'
+    });
+}
+      
         // Update Order
         order.deliveryPartner = partner.user;
         await order.save();
@@ -1268,12 +1283,12 @@ const resendDeliveryOtp = async (req, res) => {
         const otp = crypto.randomInt(100000, 1000000).toString();
 
         // Send New OTP to Customer
-        try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: order.user.email,
-                subject: 'Sellora - Your New Delivery OTP',
-                text: `Hello ${order.user.firstName},
+     try {
+    const { data, error } = await resend.emails.send({
+        from: 'Sellora <onboarding@resend.dev>',
+        to: order.user.email,
+        subject: 'Sellora - Your New Delivery OTP',
+        text: `Hello ${order.user.firstName},
 
 Your new delivery verification OTP for order ${order.orderNumber} is: ${otp}
 
@@ -1283,17 +1298,27 @@ Do not share this OTP before receiving your order.
 
 Thank you,
 Team Sellora`
-            });
+    });
 
-        } catch (emailError) {
-            console.log('RESEND OTP EMAIL ERROR:', emailError.message);
+    if (error) {
+        console.error('RESEND DELIVERY OTP ERROR:', error);
 
-            return res.status(500).json({
-                success: false,
-                message: 'OTP email could not be sent. Please try again.'
-            });
-        }
+        return res.status(500).json({
+            success: false,
+            message: 'OTP email could not be sent. Please try again.'
+        });
+    }
 
+    console.log('New delivery OTP email sent:', data?.id);
+
+} catch (emailError) {
+    console.error('RESEND DELIVERY OTP ERROR:', emailError);
+
+    return res.status(500).json({
+        success: false,
+        message: 'OTP email could not be sent. Please try again.'
+    });
+}
         // Save New OTP and Reset Attempts
         delivery.deliveryOtp = otp;
         delivery.otpAttempts = 0;

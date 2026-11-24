@@ -60,9 +60,7 @@ const Store = () => {
     // CHECK USER PERMISSIONS
     const checkUser = async () => {
         try {
-            const res = await API.get(
-                '/user/check-user',
-            )
+            const res = await API.get('/user/check-user')
 
             const currentUser = res.data.user
 
@@ -103,18 +101,15 @@ const Store = () => {
         try {
             setLoading(true)
 
-            const res = await API.get(
-                '/store/get-all',
-                {
-                    params: {
-                        page: currentPage,
-                        limit,
-                        search,
-                        sortBy,
-                        order
-                    }
+            const res = await API.get('/store/get-all', {
+                params: {
+                    page: currentPage,
+                    limit,
+                    search,
+                    sortBy,
+                    order
                 }
-            )
+            })
 
             setStores(
                 Array.isArray(res.data.data) ? res.data.data : []
@@ -136,9 +131,7 @@ const Store = () => {
     // GET ONLY STORE MANAGERS
     const getUser = async () => {
         try {
-            const res = await API.get(
-                '/user/get-all',
-            )
+            const res = await API.get('/user/get-all')
 
             const allUsers = Array.isArray(res.data.data)
                 ? res.data.data
@@ -323,7 +316,6 @@ const Store = () => {
 
             const properties = feature.properties || {}
 
-            // PHOTON ADDRESS
             const photonAddress = [
                 properties.name,
                 properties.street,
@@ -339,7 +331,6 @@ const Store = () => {
                 )
                 .join(', ')
 
-            // FIRST SAVE PHOTON ADDRESS AND COORDINATES
             setForm((prev) => ({
                 ...prev,
                 address: photonAddress,
@@ -368,8 +359,6 @@ const Store = () => {
 
                 if (data.display_name) {
                     setForm((prev) => {
-                        // Prevent an older reverse request from
-                        // overwriting a newly selected address.
                         if (
                             prev.location.latitude !== latitude ||
                             prev.location.longitude !== longitude
@@ -387,7 +376,6 @@ const Store = () => {
             } catch (error) {
                 console.log('NOMINATIM ERROR:', error.message)
 
-                // Photon address and coordinates are already saved
                 toast('Complete address could not be fetched. Using selected address.')
             } finally {
                 setReverseLoading(false)
@@ -427,7 +415,6 @@ const Store = () => {
             return
         }
 
-        // ADDRESS AND COORDINATES VALIDATION
         if (
             form.location.latitude === '' ||
             form.location.longitude === '' ||
@@ -444,15 +431,9 @@ const Store = () => {
             let res
 
             if (editId) {
-                res = await API.put(
-                    `/store/update/${editId}`,
-                    form,
-                )
+                res = await API.put(`/store/update/${editId}`, form)
             } else {
-                res = await API.post(
-                    '/store/create',
-                    form,
-                )
+                res = await API.post('/store/create', form)
             }
 
             if (!res.data.status) {
@@ -536,7 +517,7 @@ const Store = () => {
 
             const res = await API.put(
                 `/store/update-status/${stores._id}`,
-                {},
+                {}
             )
 
             if (!res.data.status) {
@@ -582,13 +563,11 @@ const Store = () => {
         }
 
         try {
-            const res = await API.delete(
-                `/store/delete/${id}`,
-            )
+            const res = await API.delete(`/store/delete/${id}`)
 
             if (!res.data.status) {
                 throw new Error(
-                    res.data.message || 'Unable to delete store'
+                    res.data.message || 'Unable to delete stores'
                 )
             }
 
@@ -708,7 +687,6 @@ const Store = () => {
             {/* STORE TABLE CARD */}
             <div className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
 
-                {/* TABLE HEADER */}
                 <div className="flex min-w-0 flex-col gap-2 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                     <div className="min-w-0">
                         <h2 className="text-lg font-bold text-slate-800">
@@ -744,112 +722,106 @@ const Store = () => {
                         </p>
                     </div>
                 ) : (
-                    <div className="block w-full min-w-0 max-w-full overflow-x-auto">
-                        <table className="w-full min-w-[1050px] text-left">
-
+                    <div className="w-full min-w-0 max-w-full">
+                        <table className="w-full table-fixed text-left">
                             <thead className="bg-indigo-50/70">
                                 <tr>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">#</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Store Name</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Code</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Manager</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Phone</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Address</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Location</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Service Radius</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Status</th>
-                                    <th className="whitespace-nowrap px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-600">Actions</th>
+                                    <th className="w-[3%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">#</th>
+                                    <th className="w-[13%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Store Name</th>
+                                    <th className="w-[7%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Code</th>
+                                    <th className="w-[9%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Manager</th>
+                                    <th className="w-[9%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Phone</th>
+                                    <th className="w-[15%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Address</th>
+                                    <th className="w-[12%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Location</th>
+                                    <th className="w-[7%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Service Radius</th>
+                                    <th className="w-[12%] break-words px-1.5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Status</th>
+                                    <th className="w-[13%] break-words px-1.5 py-3 text-center text-[10px] font-bold uppercase tracking-wide text-slate-600 sm:px-2 sm:text-xs">Actions</th>
                                 </tr>
                             </thead>
 
                             <tbody className="divide-y divide-slate-100">
                                 {store.map((stores, index) => (
-                                    <tr
-                                        key={stores._id}
-                                        className="transition hover:bg-slate-50"
-                                    >
-                                        <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-slate-500">
+                                    <tr key={stores._id} className="transition hover:bg-slate-50">
+                                        <td className="break-words px-1.5 py-3 text-xs font-medium text-slate-500 sm:px-2 sm:text-sm">
                                             {(currentPage - 1) * limit + index + 1}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4">
-                                            <span className="font-semibold text-slate-800">
+                                        <td className="break-words px-1.5 py-3 sm:px-2">
+                                            <span className="break-words text-xs font-semibold text-slate-800 sm:text-sm">
                                                 {stores.name}
                                             </span>
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4">
-                                            <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+                                        <td className="break-words px-1.5 py-3 sm:px-2">
+                                            <span className="inline-block max-w-full break-all rounded-md bg-slate-100 px-1.5 py-1 text-[10px] font-medium text-slate-700 sm:px-2 sm:text-xs">
                                                 {stores.code}
                                             </span>
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                                        <td className="break-words px-1.5 py-3 text-xs text-slate-600 sm:px-2 sm:text-sm">
                                             {stores.manager
                                                 ? `${stores.manager.firstName || ''} ${stores.manager.lastName || ''}`.trim()
                                                 : 'N/A'}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                                        <td className="break-words px-1.5 py-3 text-xs text-slate-600 sm:px-2 sm:text-sm">
                                             {stores.phone || 'N/A'}
                                         </td>
 
-                                        <td className="max-w-[220px] px-4 py-4">
-                                            <p className="line-clamp-2 text-sm text-slate-600">
+                                        <td className="break-words px-1.5 py-3 sm:px-2">
+                                            <p className="line-clamp-2 break-words text-xs text-slate-600 sm:text-sm">
                                                 {stores.address || 'N/A'}
                                             </p>
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                                        <td className="break-words px-1.5 py-3 text-[10px] text-slate-600 sm:px-2 sm:text-xs">
                                             {stores.location?.coordinates?.length === 2
                                                 ? `${stores.location.coordinates[1]}, ${stores.location.coordinates[0]}`
                                                 : 'N/A'}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                                        <td className="break-words px-1.5 py-3 text-xs text-slate-600 sm:px-2 sm:text-sm">
                                             {stores.serviceRadius ?? 'N/A'}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-xs font-semibold ${stores.status === 'active'
+                                        <td className="break-words px-1.5 py-3 sm:px-2">
+                                            <div className="flex min-w-0 flex-col items-start gap-1.5 2xl:flex-row 2xl:items-center 2xl:gap-2">
+                                                <span className={`break-words text-[10px] font-semibold sm:text-xs ${stores.status === 'active'
                                                     ? 'text-green-700'
                                                     : 'text-gray-500'
                                                     }`}>
                                                     {stores.status === 'active' ? 'Active' : 'Inactive'}
                                                 </span>
 
-                                                {hasPermission('store_edit') ? (
+                                                {hasPermission('store_edit') && (
                                                     <button
                                                         type="button"
                                                         onClick={() => handleStatusToggle(stores)}
                                                         disabled={updatingStatus === stores._id}
                                                         title="Change store status"
-                                                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${stores.status === 'active'
+                                                        className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-12 ${stores.status === 'active'
                                                             ? 'bg-green-500'
                                                             : 'bg-gray-300'
                                                             }`}
                                                     >
-                                                        <span
-                                                            className={`block h-5 w-5 rounded-full !bg-white shadow-md transition-transform duration-200 ${stores.status === 'active'
-                                                                ? 'translate-x-5'
-                                                                : 'translate-x-0'
-                                                                }`}
-                                                        />
+                                                        <span className={`block h-4 w-4 rounded-full !bg-white shadow-md transition-transform duration-200 sm:h-5 sm:w-5 ${stores.status === 'active'
+                                                            ? 'translate-x-4 sm:translate-x-5'
+                                                            : 'translate-x-0'
+                                                            }`} />
                                                     </button>
-                                                ) : null}
+                                                )}
                                             </div>
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-4">
-                                            <div className="flex items-center justify-center gap-2">
+                                        <td className="px-1.5 py-3 sm:px-2">
+                                            <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleView(stores)}
                                                     title="View"
-                                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+                                                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 sm:h-8 sm:w-8"
                                                 >
-                                                    <LuEye size={17} />
+                                                    <LuEye size={15} />
                                                 </button>
 
                                                 {hasPermission('store_edit') && (
@@ -857,9 +829,9 @@ const Store = () => {
                                                         type="button"
                                                         onClick={() => handleEdit(stores)}
                                                         title="Edit"
-                                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100"
+                                                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100 sm:h-8 sm:w-8"
                                                     >
-                                                        <LuSquarePen size={17} />
+                                                        <LuSquarePen size={15} />
                                                     </button>
                                                 )}
 
@@ -868,9 +840,9 @@ const Store = () => {
                                                         type="button"
                                                         onClick={() => handleDelete(stores._id)}
                                                         title="Delete"
-                                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                                                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 sm:h-8 sm:w-8"
                                                     >
-                                                        <LuTrash2 size={17} />
+                                                        <LuTrash2 size={15} />
                                                     </button>
                                                 )}
                                             </div>
@@ -920,10 +892,10 @@ const Store = () => {
 
             {/* ADD / EDIT FORM MODAL */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-                    <div className="my-auto w-full min-w-0 max-w-2xl overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+                    <div className="my-auto flex max-h-[96vh] w-full min-w-0 max-w-2xl flex-col overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-2xl sm:max-h-[92vh]">
 
-                        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
+                        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
                             <div className="min-w-0">
                                 <h2 className="text-xl font-bold text-slate-900">
                                     {editId ? 'Edit Store' : 'Add Store'}
@@ -943,10 +915,9 @@ const Store = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit}>
-                            <div className="grid max-h-[65vh] grid-cols-1 gap-4 overflow-y-auto p-4 sm:grid-cols-2 sm:p-6">
+                        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 sm:grid-cols-2 sm:p-6">
 
-                                {/* STORE NAME */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Store Name
@@ -963,7 +934,6 @@ const Store = () => {
                                     />
                                 </div>
 
-                                {/* STORE CODE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Store Code
@@ -980,7 +950,6 @@ const Store = () => {
                                     />
                                 </div>
 
-                                {/* MANAGER */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Manager
@@ -1003,7 +972,6 @@ const Store = () => {
                                     </select>
                                 </div>
 
-                                {/* PHONE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Phone
@@ -1021,7 +989,7 @@ const Store = () => {
                                 </div>
 
                                 {/* ADDRESS WITH PHOTON */}
-                                <div className="relative sm:col-span-2">
+                                <div className="relative min-w-0 sm:col-span-2">
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Address
                                     </label>
@@ -1120,7 +1088,6 @@ const Store = () => {
                                     </p>
                                 </div>
 
-                                {/* LATITUDE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Latitude
@@ -1135,7 +1102,6 @@ const Store = () => {
                                     />
                                 </div>
 
-                                {/* LONGITUDE */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Longitude
@@ -1150,7 +1116,6 @@ const Store = () => {
                                     />
                                 </div>
 
-                                {/* SERVICE RADIUS */}
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Service Radius
@@ -1170,7 +1135,7 @@ const Store = () => {
                             </div>
 
                             {/* FORM BUTTONS */}
-                            <div className="flex flex-col-reverse justify-end gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:flex-row sm:px-6">
+                            <div className="flex shrink-0 flex-col-reverse justify-end gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:flex-row sm:px-6">
                                 <button
                                     type="button"
                                     onClick={handleClose}
@@ -1196,10 +1161,10 @@ const Store = () => {
 
             {/* VIEW STORE MODAL */}
             {showView && viewStore && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-                    <div className="my-auto w-full min-w-0 max-w-lg rounded-2xl border border-indigo-100 bg-white p-4 shadow-2xl sm:p-6">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+                    <div className="my-auto flex max-h-[96vh] w-full min-w-0 max-w-lg flex-col overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-2xl sm:max-h-[92vh] sm:p-6">
 
-                        <div className="mb-5 flex items-center justify-between gap-3">
+                        <div className="mb-5 flex shrink-0 items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <h2 className="text-xl font-bold text-slate-900">
                                     Store Details
@@ -1222,7 +1187,7 @@ const Store = () => {
                             </button>
                         </div>
 
-                        <div className="grid max-h-[65vh] grid-cols-1 gap-3 overflow-y-auto sm:grid-cols-2">
+                        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto sm:grid-cols-2">
 
                             <div className="rounded-xl bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase text-slate-400">Store Name</p>
@@ -1256,13 +1221,15 @@ const Store = () => {
                             <div className="rounded-xl bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase text-slate-400">Latitude</p>
                                 <p className="mt-1 break-words font-semibold text-slate-800">
-                                    {viewStore.location?.coordinates?.[1] ?? 'N/A'}                                </p>
+                                    {viewStore.location?.coordinates?.[1] ?? 'N/A'}
+                                </p>
                             </div>
 
                             <div className="rounded-xl bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase text-slate-400">Longitude</p>
                                 <p className="mt-1 break-words font-semibold text-slate-800">
-                                    {viewStore.location?.coordinates?.[0] ?? 'N/A'}                                </p>
+                                    {viewStore.location?.coordinates?.[0] ?? 'N/A'}
+                                </p>
                             </div>
 
                             <div className="rounded-xl bg-slate-50 p-3">
@@ -1289,7 +1256,7 @@ const Store = () => {
                                 setShowView(false)
                                 setViewStore(null)
                             }}
-                            className="mt-5 w-full rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
+                            className="mt-5 w-full shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
                         >
                             Close
                         </button>

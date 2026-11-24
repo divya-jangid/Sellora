@@ -11,9 +11,16 @@ const Order = require('../model/ordermodel');
 const Delivery = require('../model/deliverymodel');
 const Inventory = require('../model/inventorymodel');
 
-const releaseReservedInventory = require('../utils/releaseReservedInventory');
 
+const releaseReservedInventory = require('../utils/releaseReservedInventory')
 const pendingSignups = new Map()
+
+
+const { Resend } = require('resend')
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+
 
 
 
@@ -129,15 +136,29 @@ const userSignup = async (req, res) => {
             verified: false
         })
 
-        try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: normalizedEmail,
-                subject: 'Verify your Sellora email',
-                text: `Your Sellora verification OTP is ${otp}. It expires in 10 minutes.`
-            })
-        } catch (emailError) {
-    console.error("OTP EMAIL ERROR:", emailError)
+    try {
+    const { data, error } = await resend.emails.send({
+        from: 'Sellora <onboarding@resend.dev>',
+        to: normalizedEmail,
+        subject: 'Verify your Sellora email',
+        text: `Your Sellora verification OTP is ${otp}. It expires in 10 minutes.`
+    })
+
+    if (error) {
+        console.error('OTP EMAIL ERROR:', error)
+
+        pendingSignups.delete(normalizedEmail)
+
+        return res.status(500).json({
+            message: 'Verification email could not be sent',
+            status: false
+        })
+    }
+
+    console.log('OTP email sent successfully:', data?.id)
+
+} catch (emailError) {
+    console.error('OTP EMAIL ERROR:', emailError)
 
     pendingSignups.delete(normalizedEmail)
 
@@ -258,23 +279,41 @@ const forgotPassword = async (req, res) => {
 
         await user.save()
 
-        try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: normalizedEmail,
-                subject: 'Sellora Password Reset OTP',
-                text: `Your Sellora password reset OTP is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`
-            })
-        } catch (emailError) {
-            user.passwordResetOTP = null
-            user.passwordResetOTPExpiry = null
-            await user.save()
+     try {
+    const { data, error } = await resend.emails.send({
+        from: 'Sellora <onboarding@resend.dev>',
+        to: normalizedEmail,
+        subject: 'Sellora Password Reset OTP',
+        text: `Your Sellora password reset OTP is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`
+    })
 
-            return res.status(500).json({
-                message: 'Reset email could not be sent. Please try again.',
-                status: false
-            })
-        }
+    if (error) {
+        console.error('PASSWORD RESET EMAIL ERROR:', error)
+
+        user.passwordResetOTP = null
+        user.passwordResetOTPExpiry = null
+        await user.save()
+
+        return res.status(500).json({
+            message: 'Reset email could not be sent. Please try again.',
+            status: false
+        })
+    }
+
+    console.log('Password reset email sent:', data?.id)
+
+} catch (emailError) {
+    console.error('PASSWORD RESET EMAIL ERROR:', emailError)
+
+    user.passwordResetOTP = null
+    user.passwordResetOTPExpiry = null
+    await user.save()
+
+    return res.status(500).json({
+        message: 'Reset email could not be sent. Please try again.',
+        status: false
+    })
+}
 
         return res.status(200).json({
             message: 'Password reset OTP sent to your email.',
@@ -746,9 +785,10 @@ const createUser = async (req, res) => {
             await deliveryPartner.save();
         }
 
-// Send Temporary Password Email
-await transporter.sendMail({
-    from: `"Sellora" <${process.env.EMAIL_USER}>`,
+// Send Temporary Password Email using Resend
+
+const { data, error } = await resend.emails.send({
+    from: 'Sellora <onboarding@resend.dev>',
     to: user.email,
     subject: 'Your Sellora Account Login Details',
     html: getEmailTemplate(
@@ -768,6 +808,13 @@ await transporter.sendMail({
         `
     )
 });
+
+if (error) {
+    console.error('Resend Email Error:', error);
+
+    throw new Error(error.message || 'Temporary password email could not be sent');
+}
+
         return res.status(201).json({
             status: true,
             message: isDeliveryPartner
